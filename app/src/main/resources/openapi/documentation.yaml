@@ -1,0 +1,562 @@
+openapi: 3.0.3
+info:
+  title: Gateway API
+  description: >
+    Authentication portal and OpenID Connect / OAuth2 identity provider.
+    Local accounts, external login, MFA, sessions, consent, and admin management.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Local account authentication, sessions, verification, password reset
+  - name: MFA
+    description: TOTP multi-factor enrollment
+  - name: External
+    description: External identity provider login (Google/GitHub/Discord)
+  - name: OIDC
+    description: OpenID Connect / OAuth2 provider endpoints
+  - name: Admin
+    description: Management API (bootstrap-token guarded)
+  - name: System
+
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      summary: Liveness probe
+      responses:
+        "200": { description: OK }
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a local account (sends a verification email)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in. Returns a session cookie, or an MFA challenge if MFA is enrolled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in (sets session cookie) OR MFA required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/UserResponse"
+                  - $ref: "#/components/schemas/MfaChallengeResponse"
+        "401": { $ref: "#/components/responses/Error" }
+
+  /api/auth/login/mfa:
+    post:
+      tags: [Auth]
+      summary: Complete MFA login with a TOTP or recovery code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaLoginRequest" }
+      responses:
+        "200": { description: Logged in, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current authenticated user
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out the current session
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+
+  /api/auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Revoke all of the current user's sessions
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+
+  /api/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List the current user's active sessions
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/SessionSummary" } }
+
+  /api/auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke one of the current user's sessions
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/auth/verify:
+    post:
+      tags: [Auth]
+      summary: Verify an email address with a token
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/TokenBody" } } }
+      responses:
+        "200": { description: Verified, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/auth/verify/send:
+    post:
+      tags: [Auth]
+      summary: Resend the verification email
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+
+  /api/auth/password/forgot:
+    post:
+      tags: [Auth]
+      summary: Request a password-reset email (always 200)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/EmailBody" } } }
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+
+  /api/auth/password/reset:
+    post:
+      tags: [Auth]
+      summary: Reset a password with a token (revokes all sessions)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ResetPasswordRequest" } } }
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+        "400": { $ref: "#/components/responses/Error" }
+
+  /api/mfa/totp/status:
+    get:
+      tags: [MFA]
+      summary: Whether TOTP MFA is active on the current account
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MfaStatusResponse" } } } }
+
+  /api/mfa/totp/setup:
+    post:
+      tags: [MFA]
+      summary: Begin TOTP enrollment (returns secret + otpauth URI)
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TotpSetupResponse" } } } }
+
+  /api/mfa/totp:
+    delete:
+      tags: [MFA]
+      summary: Disable TOTP MFA (removes the enrollment and recovery codes)
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/MessageResponse" } } } }
+
+  /api/mfa/totp/confirm:
+    post:
+      tags: [MFA]
+      summary: Confirm TOTP with a code (returns one-time recovery codes)
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/MfaConfirmRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RecoveryCodesResponse" } } } }
+
+  /api/auth/external/{provider}/start:
+    get:
+      tags: [External]
+      summary: Begin external login (redirects to the provider)
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [google, github, discord] } }
+      responses:
+        "302": { description: Redirect to provider }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/auth/external/{provider}/callback:
+    get:
+      tags: [External]
+      summary: External provider callback (links/creates account, starts session)
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+      responses:
+        "302": { description: Redirect to the frontend post-login URL }
+
+  /.well-known/openid-configuration:
+    get:
+      tags: [OIDC]
+      summary: OIDC discovery document
+      responses:
+        "200": { description: OK }
+
+  /.well-known/jwks.json:
+    get:
+      tags: [OIDC]
+      summary: JSON Web Key Set (public signing keys)
+      responses:
+        "200": { description: OK }
+
+  /oauth2/authorize:
+    get:
+      tags: [OIDC]
+      summary: Authorization endpoint (auth code + PKCE)
+      description: Requires an authenticated session. Returns 302 with a code, 401 if login is required, or 200 consent_required.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: response_type, in: query, required: true, schema: { type: string, enum: [code] } }
+        - { name: client_id, in: query, required: true, schema: { type: string } }
+        - { name: redirect_uri, in: query, required: true, schema: { type: string } }
+        - { name: scope, in: query, required: true, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: nonce, in: query, schema: { type: string } }
+        - { name: code_challenge, in: query, schema: { type: string } }
+        - { name: code_challenge_method, in: query, schema: { type: string, enum: [S256] } }
+      responses:
+        "302": { description: Redirect to redirect_uri with code & state }
+        "200": { description: Consent required, content: { application/json: { schema: { $ref: "#/components/schemas/ConsentRequired" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /oauth2/token:
+    post:
+      tags: [OIDC]
+      summary: Token endpoint (authorization_code, refresh_token)
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: "#/components/schemas/TokenRequest" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/TokenResponse" } } } }
+        "400": { $ref: "#/components/responses/OAuthError" }
+        "401": { $ref: "#/components/responses/OAuthError" }
+
+  /oauth2/userinfo:
+    get:
+      tags: [OIDC]
+      summary: UserInfo endpoint
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserInfo" } } } }
+        "401": { $ref: "#/components/responses/OAuthError" }
+
+  /oauth2/consent:
+    post:
+      tags: [OIDC]
+      summary: Grant consent for a client's scopes
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ConsentRequest" } } }
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+
+  /api/admin/clients:
+    get:
+      tags: [Admin]
+      summary: List OAuth clients
+      security: [{ adminToken: [] }]
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [Admin]
+      summary: Register an OAuth client
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateClientRequest" } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/ClientResponse" } } } }
+
+  /api/admin/clients/{id}:
+    delete:
+      tags: [Admin]
+      summary: Delete an OAuth client
+      security: [{ adminToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Deleted }
+
+  /api/admin/keys/rotate:
+    post:
+      tags: [Admin]
+      summary: Rotate the JWT signing key
+      security: [{ adminToken: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Message" }
+
+  /api/admin/audit:
+    get:
+      tags: [Admin]
+      summary: Recent audit-log entries
+      security: [{ adminToken: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
+      responses:
+        "200": { description: OK }
+
+  /api/admin/users:
+    get:
+      tags: [Admin]
+      summary: List users
+      security: [{ adminToken: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200": { description: OK }
+
+  /api/admin/users/{id}:
+    get:
+      tags: [Admin]
+      summary: Get a user
+      security: [{ adminToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/admin/users/{id}/status:
+    post:
+      tags: [Admin]
+      summary: Change a user's status (disabling revokes sessions)
+      security: [{ adminToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UserStatusRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+
+  /api/admin/users/{id}/sessions:
+    get:
+      tags: [Admin]
+      summary: List a user's active sessions
+      security: [{ adminToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+
+  /api/admin/users/{id}/revoke-sessions:
+    post:
+      tags: [Admin]
+      summary: Revoke all of a user's sessions
+      security: [{ adminToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "204": { description: Revoked }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: gw_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    adminToken:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+  responses:
+    Message:
+      description: A simple message
+      content: { application/json: { schema: { $ref: "#/components/schemas/MessageResponse" } } }
+    Error:
+      description: Error
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+    OAuthError:
+      description: OAuth2 error
+      content: { application/json: { schema: { $ref: "#/components/schemas/OAuthErrorResponse" } } }
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 12 }
+        displayName: { type: string, nullable: true }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+    MfaLoginRequest:
+      type: object
+      required: [mfaToken, code]
+      properties:
+        mfaToken: { type: string }
+        code: { type: string }
+    MfaChallengeResponse:
+      type: object
+      properties:
+        mfaRequired: { type: boolean }
+        mfaToken: { type: string }
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        emailVerified: { type: boolean }
+        displayName: { type: string, nullable: true }
+        status: { type: string }
+        mfaRequired: { type: boolean }
+    SessionSummary:
+      type: object
+      properties:
+        id: { type: string }
+        created_at: { type: integer, format: int64 }
+        last_seen_at: { type: integer, format: int64 }
+        ip: { type: string, nullable: true }
+        user_agent: { type: string, nullable: true }
+        current: { type: boolean }
+    TokenBody:
+      type: object
+      required: [token]
+      properties: { token: { type: string } }
+    EmailBody:
+      type: object
+      required: [email]
+      properties: { email: { type: string } }
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string }
+        password: { type: string, minLength: 12 }
+    TotpSetupResponse:
+      type: object
+      properties:
+        secret: { type: string }
+        provisioning_uri: { type: string }
+    RecoveryCodesResponse:
+      type: object
+      properties:
+        recovery_codes: { type: array, items: { type: string } }
+    MfaConfirmRequest:
+      type: object
+      required: [code]
+      properties: { code: { type: string } }
+    MfaStatusResponse:
+      type: object
+      required: [enabled]
+      properties: { enabled: { type: boolean } }
+    TokenRequest:
+      type: object
+      properties:
+        grant_type: { type: string, enum: [authorization_code, refresh_token] }
+        code: { type: string }
+        redirect_uri: { type: string }
+        code_verifier: { type: string }
+        refresh_token: { type: string }
+        client_id: { type: string }
+        client_secret: { type: string }
+    TokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string }
+        expires_in: { type: integer }
+        scope: { type: string }
+        id_token: { type: string, nullable: true }
+        refresh_token: { type: string, nullable: true }
+    UserInfo:
+      type: object
+      required: [sub]
+      properties:
+        # email / email_verified are returned only when the token has the email scope;
+        # name only with the profile scope. Absent claims are omitted.
+        sub: { type: string }
+        email: { type: string, nullable: true }
+        email_verified: { type: boolean, nullable: true }
+        name: { type: string, nullable: true }
+    ConsentRequired:
+      type: object
+      properties:
+        consent_required: { type: boolean }
+        client_id: { type: string }
+        client_name: { type: string }
+        scopes: { type: array, items: { type: string } }
+    ConsentRequest:
+      type: object
+      required: [client_id, scopes]
+      properties:
+        client_id: { type: string }
+        scopes: { type: array, items: { type: string } }
+    CreateClientRequest:
+      type: object
+      required: [name, redirect_uris]
+      properties:
+        name: { type: string }
+        redirect_uris: { type: array, items: { type: string } }
+        scopes: { type: array, items: { type: string } }
+        public: { type: boolean }
+        require_consent: { type: boolean }
+    ClientResponse:
+      type: object
+      properties:
+        client_id: { type: string }
+        name: { type: string }
+        public: { type: boolean }
+        redirect_uris: { type: array, items: { type: string } }
+        scopes: { type: array, items: { type: string } }
+        client_secret: { type: string, nullable: true }
+    UserStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ACTIVE, DISABLED, LOCKED, PENDING_VERIFICATION] }
+    MessageResponse:
+      type: object
+      properties: { message: { type: string } }
+    ErrorResponse:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+    OAuthErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+        error_description: { type: string }

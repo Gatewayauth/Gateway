@@ -1,0 +1,70 @@
+# Gateway detekt configuration. Layered on top of detekt's default config
+# (buildUponDefaultConfig = true). Only overrides live here.
+
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+# Gateway custom ruleset (see :detekt-rules module).
+gateway:
+  active: true
+  # Explicitly requested: one top-level class/object per file.
+  OneTopLevelClassOrObjectPerFile:
+    active: true
+
+style:
+  active: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+  MagicNumber:
+    active: true
+    ignoreNumbers: ['-1', '0', '1', '2', '3', '4', '100', '1000']
+    ignoreHashCodeFunction: true
+    ignorePropertyDeclaration: true
+    ignoreEnums: true
+  ForbiddenComment:
+    active: false
+  ReturnCount:
+    active: true
+    max: 8
+  ThrowsCount:
+    active: true
+    max: 8
+
+complexity:
+  active: true
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 20
+  LongMethod:
+    active: true
+    threshold: 110
+  LongParameterList:
+    active: true
+    functionThreshold: 12
+    constructorThreshold: 12
+  TooManyFunctions:
+    active: true
+    thresholdInClasses: 20
+    thresholdInFiles: 20
+
+formatting:
+  active: true
+  MaximumLineLength:
+    active: true
+    maxLineLength: 120
+  # ktlint import ordering conflicts with IDE default; keep relaxed.
+  ImportOrdering:
+    active: false
+
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+    # Ktor Application.configureX() extension style + composables not used here.
+    functionPattern: '[a-z][a-zA-Z0-9]*'
