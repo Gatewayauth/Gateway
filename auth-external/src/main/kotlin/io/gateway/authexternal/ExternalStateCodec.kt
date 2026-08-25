@@ -16,10 +16,12 @@ class ExternalStateCodec(key: ByteArray, private val clock: Clock, private val t
 
     private val hmac = Hmac(key)
 
-    fun issue(provider: String): IssuedState {
+    fun issue(provider: String, tenantSlug: String): IssuedState {
         val state = RandomTokens.urlSafe(STATE_BYTES)
         val verifier = RandomTokens.urlSafe(VERIFIER_BYTES)
-        val payload = listOf(provider, state, verifier, expiry()).joinToString(DELIMITER)
+        // Tenant is carried in the signed state (not the callback URL) so the
+        // provider's redirect URI is one fixed, tenant-agnostic path per provider.
+        val payload = listOf(provider, tenantSlug, state, verifier, expiry()).joinToString(DELIMITER)
         val cookie = Base64Url.encode(payload.toByteArray()) + "." + hmac.signToBase64Url(payload)
         return IssuedState(state = state, codeVerifier = verifier, cookieValue = cookie)
     }
@@ -33,12 +35,13 @@ class ExternalStateCodec(key: ByteArray, private val clock: Clock, private val t
         val fields = payload.split(DELIMITER)
         if (fields.size != FIELD_COUNT) return null
         val provider = fields[0]
-        val state = fields[1]
-        val verifier = fields[2]
-        val expiresAt = fields[3].toLongOrNull() ?: return null
+        val tenantSlug = fields[1]
+        val state = fields[2]
+        val verifier = fields[3]
+        val expiresAt = fields[4].toLongOrNull() ?: return null
         if (state != returnedState) return null
         if (expiresAt <= clock.now().toEpochMilliseconds()) return null
-        return VerifiedState(provider = provider, codeVerifier = verifier)
+        return VerifiedState(provider = provider, tenantSlug = tenantSlug, codeVerifier = verifier)
     }
 
     private fun expiry(): String = clock.now().plus(ttl).toEpochMilliseconds().toString()
@@ -48,6 +51,6 @@ class ExternalStateCodec(key: ByteArray, private val clock: Clock, private val t
         const val STATE_BYTES = 24
         const val VERIFIER_BYTES = 32
         const val DELIMITER = "|"
-        const val FIELD_COUNT = 4
+        const val FIELD_COUNT = 5
     }
 }

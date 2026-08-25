@@ -15,6 +15,7 @@ import io.gateway.session.SessionService
 import io.ktor.http.Cookie
 import io.ktor.http.CookieEncoding
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.response.respond
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -25,15 +26,56 @@ private const val STATE_COOKIE = "gw_ext_state"
 private const val RETURN_COOKIE = "gw_ext_return"
 private const val STATE_COOKIE_MAX_AGE = 600
 
-/** Cookie path (and callback base) are tenant-scoped: `/t/{slug}/api/auth/external`. */
-private fun externalBasePath(slug: String) = "/t/$slug/api/auth/external"
+/**
+ * State/return cookie path, shared by `/start` (mounted under /t/{slug}) and the
+ * tenant-agnostic `/callback`. Fixed so a single provider redirect URI serves
+ * every tenant — the tenant travels in the signed state, not the URL.
+ */
+private const val EXTERNAL_COOKIE_PATH = "/api/auth/external"
 
 /**
- * External login (Google/GitHub/Discord). `/start` redirects to the provider with a
- * signed state + PKCE challenge in an HttpOnly cookie; `/callback` validates state,
- * exchanges the code, links/creates the local account, and starts a session.
+ * Tenant-scoped external-login entry points (mounted under /t/{slug}):
+ * `/providers` lists configured IdPs; `/{provider}/start` redirects to the provider
+ * with a signed state (carrying provider + tenant) + PKCE challenge in an HttpOnly
+ * cookie. The matching `/callback` is registered globally by [externalCallbackRoutes].
  */
 fun Route.externalAuthRoutes(
+    registry: ProviderRegistry,
+    stateCodec: ExternalStateCodec,
+    tenants: TenantRepository,
+    config: GatewayConfig,
+) = route("/api/auth/external") {
+    // Rate limiting is inherited from the parent /api/auth node (see authRoutes).
+
+    // Providers actually configured (both client id + secret set). The SPA reads
+    // this to render only usable buttons instead of the full known set.
+    get("/providers") {
+        call.respond(registry.ids().toList())
+    }
+
+    get("/{provider}/start") {
+        val slug = call.resolveTenant(tenants).slug
+        val id = call.parameters["provider"].orEmpty()
+        val provider = registry.get(id) ?: throw GatewayException.NotFound("Unknown provider: $id")
+
+        val issued = stateCodec.issue(id, slug)
+        setStateCookie(call, config, EXTERNAL_COOKIE_PATH, issued.cookieValue)
+        // Remember where to send the browser after login (e.g. a pending OIDC
+        // authorize request), so external login returns there, not the default.
+        safeReturnPath(call.request.queryParameters["redirect"])
+            ?.let { setReturnCookie(call, config, EXTERNAL_COOKIE_PATH, it) }
+        val challenge = Base64Url.encode(Sha256.hash(issued.codeVerifier))
+        call.respondRedirect(provider.authorizeUrl(issued.state, challenge, callbackUri(config, id)))
+    }
+}
+
+/**
+ * Tenant-agnostic external-login callback, registered at the root (NOT under
+ * /t/{slug}). The provider redirect URI is therefore one fixed path per provider,
+ * `${issuer}/api/auth/external/{provider}/callback`, for every tenant — the tenant
+ * is recovered from the signed state, not the URL.
+ */
+fun Route.externalCallbackRoutes(
     registry: ProviderRegistry,
     stateCodec: ExternalStateCodec,
     linking: AccountLinkingService,
@@ -42,25 +84,7 @@ fun Route.externalAuthRoutes(
     audit: AuditLogger,
     config: GatewayConfig,
 ) = route("/api/auth/external") {
-    // Rate limiting is inherited from the parent /api/auth node (see authRoutes).
-    get("/{provider}/start") {
-        val slug = call.resolveTenant(tenants).slug
-        val id = call.parameters["provider"].orEmpty()
-        val provider = registry.get(id) ?: throw GatewayException.NotFound("Unknown provider: $id")
-
-        val issued = stateCodec.issue(id)
-        val basePath = externalBasePath(slug)
-        setStateCookie(call, config, basePath, issued.cookieValue)
-        // Remember where to send the browser after login (e.g. a pending OIDC
-        // authorize request), so external login returns there, not the default.
-        safeReturnPath(call.request.queryParameters["redirect"])?.let { setReturnCookie(call, config, basePath, it) }
-        val challenge = Base64Url.encode(Sha256.hash(issued.codeVerifier))
-        call.respondRedirect(provider.authorizeUrl(issued.state, challenge, callbackUri(config, slug, id)))
-    }
-
     get("/{provider}/callback") {
-        val tenant = call.resolveTenant(tenants)
-        val slug = tenant.slug
         val id = call.parameters["provider"].orEmpty()
         val provider = registry.get(id) ?: throw GatewayException.NotFound("Unknown provider: $id")
 
@@ -77,8 +101,12 @@ fun Route.externalAuthRoutes(
             ?: throw GatewayException.Unauthenticated("Invalid or expired state.")
         if (verified.provider != id) throw GatewayException.Unauthenticated("Provider mismatch.")
 
-        val basePath = externalBasePath(slug)
-        val profile = provider.exchange(code, verified.codeVerifier, callbackUri(config, slug, id))
+        // Tenant comes from the signed state, not the path.
+        val tenant = tenants.findBySlug(verified.tenantSlug)
+            ?: throw GatewayException.NotFound("Unknown tenant.")
+        if (!tenant.isActive) throw GatewayException.Forbidden("Tenant is suspended.")
+
+        val profile = provider.exchange(code, verified.codeVerifier, callbackUri(config, id))
         val user = linking.resolve(tenant.id, profile)
         audit.record(
             tenant.id,
@@ -89,7 +117,7 @@ fun Route.externalAuthRoutes(
             detail = "provider=$id",
         )
 
-        clearStateCookie(call, config, basePath)
+        clearStateCookie(call, config, EXTERNAL_COOKIE_PATH)
         val issued = sessions.create(
             tenantId = tenant.id,
             userId = user.id,
@@ -103,7 +131,7 @@ fun Route.externalAuthRoutes(
             ?.let(::safeReturnPath)
             ?.let { originOf(config.postLoginRedirect) + it }
             ?: config.postLoginRedirect
-        clearReturnCookie(call, config, basePath)
+        clearReturnCookie(call, config, EXTERNAL_COOKIE_PATH)
         call.respondRedirect(target)
     }
 }
@@ -128,8 +156,8 @@ private fun originOf(url: String): String {
     return url.substring(0, schemeEnd + 3) + if (slash < 0) rest else rest.substring(0, slash)
 }
 
-private fun callbackUri(config: GatewayConfig, slug: String, provider: String): String =
-    "${config.issuer}/t/$slug/api/auth/external/$provider/callback"
+private fun callbackUri(config: GatewayConfig, provider: String): String =
+    "${config.issuer}/api/auth/external/$provider/callback"
 
 private fun setStateCookie(call: ApplicationCall, config: GatewayConfig, path: String, value: String) {
     call.response.cookies.append(

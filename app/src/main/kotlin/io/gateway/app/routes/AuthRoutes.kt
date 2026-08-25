@@ -148,6 +148,14 @@ fun Route.accountRoutes(deps: AuthRoutesDeps) = with(deps) {
             call.respond(AuthDtos.UserResponse.of(requireUser(call, tid, sessions, users, config)))
         }
 
+        // Providers this account has actually linked (e.g. signed up via Discord).
+        // The account UI marks these as connected.
+        get("/identities") {
+            val tid = call.resolveTenant(tenants).id
+            val user = requireUser(call, tid, sessions, users, config)
+            call.respond(identities.listForUser(tid, user.id).map { it.provider }.distinct())
+        }
+
         get("/sessions") {
             val tid = call.resolveTenant(tenants).id
             val user = requireUser(call, tid, sessions, users, config)

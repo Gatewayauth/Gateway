@@ -7,6 +7,7 @@ import io.gateway.authlocal.EmailVerificationService
 import io.gateway.authlocal.PasswordAuthenticator
 import io.gateway.authlocal.PasswordResetService
 import io.gateway.authlocal.RegistrationService
+import io.gateway.domain.repository.ExternalIdentityRepository
 import io.gateway.domain.repository.TenantRepository
 import io.gateway.domain.repository.UserRepository
 import io.gateway.mfa.MfaAttemptLimiter
@@ -20,6 +21,7 @@ data class AuthRoutesDeps(
     val authenticator: PasswordAuthenticator,
     val sessions: SessionService,
     val users: UserRepository,
+    val identities: ExternalIdentityRepository,
     val tenants: TenantRepository,
     val mfa: MfaEnrollmentService,
     val challenges: MfaChallengeService,

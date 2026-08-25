@@ -9,6 +9,7 @@ import io.gateway.app.routes.accountRoutes
 import io.gateway.app.routes.adminRoutes
 import io.gateway.app.routes.authRoutes
 import io.gateway.app.routes.externalAuthRoutes
+import io.gateway.app.routes.externalCallbackRoutes
 import io.gateway.app.routes.healthRoutes
 import io.gateway.app.routes.mfaRoutes
 import io.gateway.app.routes.oauth2Routes
@@ -24,6 +25,7 @@ import io.gateway.authlocal.EmailVerificationService
 import io.gateway.authlocal.PasswordAuthenticator
 import io.gateway.authlocal.PasswordResetService
 import io.gateway.authlocal.RegistrationService
+import io.gateway.domain.repository.ExternalIdentityRepository
 import io.gateway.domain.repository.OAuthClientRepository
 import io.gateway.domain.repository.TenantRepository
 import io.gateway.domain.repository.UserRepository
@@ -131,6 +133,7 @@ fun Application.module() {
     val providerRegistry by inject<ProviderRegistry>()
     val stateCodec by inject<ExternalStateCodec>()
     val accountLinking by inject<AccountLinkingService>()
+    val externalIdentities by inject<ExternalIdentityRepository>()
     val signingKeys by inject<SigningKeyManager>()
     val audit by inject<AuditLogger>()
     val auditQuery by inject<AuditQuery>()
@@ -152,6 +155,9 @@ fun Application.module() {
         healthRoutes()
         swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
         provisioningRoutes(tenants, signingKeys, clock, config.adminToken)
+        // Tenant-agnostic external-login callback (one redirect URI per provider,
+        // tenant recovered from signed state). `/start` stays tenant-scoped below.
+        externalCallbackRoutes(providerRegistry, stateCodec, accountLinking, sessions, tenants, audit, config)
 
         // Everything else lives under /t/{tenantSlug}; handlers resolve the tenant.
         val authDeps = AuthRoutesDeps(
@@ -159,6 +165,7 @@ fun Application.module() {
             authenticator = authenticator,
             sessions = sessions,
             users = users,
+            identities = externalIdentities,
             tenants = tenants,
             mfa = mfaEnrollment,
             challenges = mfaChallenges,
@@ -173,7 +180,7 @@ fun Application.module() {
             authRoutes(authDeps)
             accountRoutes(authDeps)
             mfaRoutes(sessions, users, tenants, mfaEnrollment, rateLimitBackend, config)
-            externalAuthRoutes(providerRegistry, stateCodec, accountLinking, sessions, tenants, audit, config)
+            externalAuthRoutes(providerRegistry, stateCodec, tenants, config)
             oidcRoutes(oidcConfig, jwks, tenants)
             oauth2Routes(
                 sessions, users, tenants, authorization, tokenService, clientAuth, accessTokens,

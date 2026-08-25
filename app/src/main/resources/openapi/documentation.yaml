@@ -101,6 +101,18 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Message" }
 
+  /api/auth/identities:
+    get:
+      tags: [Auth]
+      summary: External providers linked to the current user
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { type: string, enum: [google, github, discord] } }
+
   /api/auth/sessions:
     get:
       tags: [Auth]
@@ -198,6 +210,17 @@ paths:
         content: { application/json: { schema: { $ref: "#/components/schemas/MfaConfirmRequest" } } }
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RecoveryCodesResponse" } } } }
+
+  /api/auth/external/providers:
+    get:
+      tags: [External]
+      summary: List external providers configured on this deployment
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { type: string, enum: [google, github, discord] } }
 
   /api/auth/external/{provider}/start:
     get:
