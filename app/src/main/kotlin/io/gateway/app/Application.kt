@@ -25,6 +25,7 @@ import io.gateway.authlocal.EmailVerificationService
 import io.gateway.authlocal.PasswordAuthenticator
 import io.gateway.authlocal.PasswordResetService
 import io.gateway.authlocal.RegistrationService
+import io.gateway.domain.model.Role
 import io.gateway.domain.repository.ExternalIdentityRepository
 import io.gateway.domain.repository.OAuthClientRepository
 import io.gateway.domain.repository.TenantRepository
@@ -49,6 +50,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.application.log
 import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
@@ -102,8 +104,6 @@ fun Application.module() {
         allowCredentials = true
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
-        // Admin API auth header — without this the browser preflight is rejected 403.
-        allowHeader("X-Admin-Token")
         // Ktor allows GET/POST/HEAD by default; the API also uses DELETE.
         allowMethod(HttpMethod.Delete)
         config.corsOrigins.forEach { origin ->
@@ -150,11 +150,29 @@ fun Application.module() {
     val clock by inject<Clock>()
     KeyRotationScheduler(signingKeys, tenants, audit, clock, config.keyRotationDays.days, distributedLock).start(this)
 
+    // Promote the configured bootstrap admin in the default tenant (idempotent,
+    // runs every boot — lands the first time after that user has registered).
+    config.bootstrapAdminEmail?.let { email ->
+        runBlocking {
+            val root = tenants.findBySlug("default")
+            val user = root?.let { users.findByEmail(it.id, email) }
+            when {
+                root == null -> log.warn("Bootstrap admin skipped: no 'default' tenant.")
+                user == null -> log.info("Bootstrap admin '{}' not yet registered; will promote on a later start.", email)
+                user.role == Role.OWNER && user.superAdmin -> {} // already promoted
+                else -> {
+                    users.update(root.id, user.copy(role = Role.OWNER, superAdmin = true, updatedAt = clock.now()))
+                    log.info("Bootstrap admin promoted to OWNER + super-admin: {}", email)
+                }
+            }
+        }
+    }
+
     routing {
         // Global (non-tenant) endpoints.
         healthRoutes()
         swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
-        provisioningRoutes(tenants, signingKeys, clock, config.adminToken)
+        provisioningRoutes(tenants, users, sessions, signingKeys, clock, config)
         // Tenant-agnostic external-login callback (one redirect URI per provider,
         // tenant recovered from signed state). `/start` stays tenant-scoped below.
         externalCallbackRoutes(providerRegistry, stateCodec, accountLinking, sessions, tenants, audit, config)
@@ -195,7 +213,7 @@ fun Application.module() {
                 signingKeys = signingKeys,
                 audit = audit,
                 auditQuery = auditQuery,
-                adminToken = config.adminToken,
+                config = config,
             )
         }
     }

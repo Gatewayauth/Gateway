@@ -10,8 +10,11 @@ data class GatewayConfig(
     val sessionTtlHours: Long,
     val sessionCookieName: String,
     val cookieSecure: Boolean,
-    /** Bootstrap token guarding the admin API. Null disables the admin API. */
-    val adminToken: String?,
+    /**
+     * Email promoted to OWNER + super-admin in the default tenant on startup.
+     * Null disables bootstrapping. Idempotent; runs every boot.
+     */
+    val bootstrapAdminEmail: String?,
     /** Passphrase used to derive the AES/HMAC keys for TOTP secrets and MFA tokens. */
     val encKey: String,
     /** External IdP credentials keyed by provider id (google/github/discord). */

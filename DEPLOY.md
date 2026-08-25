@@ -74,8 +74,12 @@ calls the API through the same public origin.
 
 Before any real deployment, override the compose defaults:
 
-- **`GATEWAY_ADMIN_TOKEN`** and **`GATEWAY_ENC_KEY`** — rotate off the
-  `change-me-*` placeholders to strong secrets.
+- **`GATEWAY_ENC_KEY`** — rotate off the `change-me-*` placeholder to a strong
+  secret, set once and never changed (it is welded to every encrypted row).
+- **`GATEWAY_BOOTSTRAP_ADMIN_EMAIL`** — admin access is role-based (no shared
+  token). Register this email through the normal signup, then restart the
+  backend; that user is promoted to OWNER + super-admin in the default tenant and
+  can grant admin to others from the Users page. Runs idempotently every boot.
 - **`GATEWAY_COOKIE_SECURE=true`** — once served over HTTPS.
 - **`GATEWAY_ISSUER`** — the public HTTPS URL (e.g. `https://auth.example.com`),
   not `http://localhost:8080`.

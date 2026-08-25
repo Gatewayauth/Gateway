@@ -56,7 +56,7 @@ From `Backend/`:
 ```bash
 GATEWAY_COOKIE_SECURE=false \
 GATEWAY_CORS_ORIGINS=http://localhost:3000 \
-GATEWAY_ADMIN_TOKEN=dev-admin-token \
+GATEWAY_BOOTSTRAP_ADMIN_EMAIL=you@example.com \
 ./gradlew :app:run
 ```
 
@@ -66,8 +66,9 @@ Why these:
   defaults to `Secure`, which browsers refuse to set over plain `http://`. Without
   this you will "log in" but stay logged out.
 - `GATEWAY_CORS_ORIGINS` — lets the frontend origin call the API with credentials.
-- `GATEWAY_ADMIN_TOKEN` — needed later to register SSO clients. Skip if you don't
-  need the admin API yet.
+- `GATEWAY_BOOTSTRAP_ADMIN_EMAIL` — register this email through the portal, then
+  restart: it becomes OWNER + super-admin in the default tenant, unlocking the
+  admin API for that logged-in user. Skip if you don't need admin yet.
 
 Confirm it's up:
 
@@ -151,11 +152,12 @@ refuses.
 Any OIDC relying party (Grafana, YouTrack, TeamCity, Seafile, …) connects the same
 way. Example with Grafana.
 
-Register the client (needs `GATEWAY_ADMIN_TOKEN`):
+Register the client (as an admin — sign in through the portal as your
+bootstrapped admin and reuse that `gw_session` cookie):
 
 ```bash
 curl -X POST http://localhost:8080/t/default/api/admin/clients \
-  -H "X-Admin-Token: dev-admin-token" \
+  -b "gw_session=$SESSION" \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "Grafana",
@@ -204,8 +206,11 @@ Switch from local defaults:
   ```
 
   or set `GATEWAY_DB_URL`, `GATEWAY_DB_USER`, `GATEWAY_DB_PASSWORD`.
-- **Secrets.** Set a strong `GATEWAY_ENC_KEY` (rotating it invalidates stored TOTP
-  secrets) and a real `GATEWAY_ADMIN_TOKEN`. Never commit them.
+- **Secrets.** Set a strong `GATEWAY_ENC_KEY` (never change it — it is welded to
+  every encrypted row). Never commit it.
+- **Admin.** Set `GATEWAY_BOOTSTRAP_ADMIN_EMAIL`, register that account, then
+  restart to promote it to OWNER + super-admin. Admin is role-based; there is no
+  shared token.
 - **Email.** Set `GATEWAY_SMTP_HOST` (and friends) so verification and reset emails
   are actually sent instead of logged.
 - **Key rotation.** Optionally set `GATEWAY_KEY_ROTATION_DAYS` to rotate signing keys
@@ -224,6 +229,6 @@ Switch from local defaults:
 | Discord login ends on the backend, not the UI | Upgrade past the fix, or set `GATEWAY_EXTERNAL_POST_LOGIN_REDIRECT` to your UI |
 | Discord returns `redirect_uri` mismatch | Portal redirect URL doesn't match `{GATEWAY_ISSUER}/t/{slug}/api/auth/external/discord/callback` exactly |
 | SSO client rejected at `/t/{slug}/oauth2/authorize` | `redirect_uris` registered for the client don't include the one the service sent |
-| Admin API returns 401/404 | `GATEWAY_ADMIN_TOKEN` unset (disables the admin API) or wrong `X-Admin-Token` |
+| Admin API returns 401/403 | Not signed in, or the signed-in user lacks the `ADMIN`/`OWNER` role — bootstrap an admin via `GATEWAY_BOOTSTRAP_ADMIN_EMAIL` |
 
 Full API reference: run the backend and open `http://localhost:8080/swagger`.

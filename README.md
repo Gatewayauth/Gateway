@@ -83,7 +83,7 @@ for the full list). The essentials:
 | `GATEWAY_ISSUER` | Public base URL; must match your OIDC relying-party config |
 | `GATEWAY_CORS_ORIGINS` | Comma-separated frontend origins allowed to call the API |
 | `GATEWAY_DB_URL` / `_USER` / `_PASSWORD` | Postgres connection (defaults to H2) |
-| `GATEWAY_ADMIN_TOKEN` | Bootstrap token for the admin API (empty disables it) |
+| `GATEWAY_BOOTSTRAP_ADMIN_EMAIL` | Email promoted to OWNER + super-admin in the default tenant on startup (register it, then restart) |
 | `GATEWAY_ENC_KEY` | Passphrase for encrypting TOTP secrets and MFA tokens |
 | `GATEWAY_REDIS_URL` | Optional `redis://host:port`. Set it to share rate-limit / MFA-lockout / key-rotation state across instances; unset uses in-memory (single instance) |
 | `GATEWAY_EXTERNAL_POST_LOGIN_REDIRECT` | Where to land the browser after external login (defaults to the first CORS origin) |
@@ -100,11 +100,12 @@ URL with each provider:
 
 ## SSO / OIDC
 
-Register a relying party (requires `GATEWAY_ADMIN_TOKEN`):
+Register a relying party (as an admin — the request uses your session cookie, so
+sign in through the portal as a user with the `ADMIN`/`OWNER` role first):
 
 ```bash
 curl -X POST http://localhost:8080/t/default/api/admin/clients \
-  -H "X-Admin-Token: $GATEWAY_ADMIN_TOKEN" \
+  -b "gw_session=$SESSION" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Grafana","redirect_uris":["https://grafana.example/login/generic_oauth"],"scopes":["openid","profile","email"],"public":false}'
 ```
@@ -129,16 +130,17 @@ lives under `/t/{slug}/…`; a `default` tenant is seeded so single-tenant setup
 `/t/default`. Each tenant has its own users, clients, sessions, tokens, MFA, consents, and
 audit log — a session or client from one tenant is never valid in another.
 
-Provision tenants with the global super-admin API (guarded by `GATEWAY_ADMIN_TOKEN`, mounted
-outside `/t/{slug}`):
+Provision tenants with the global super-admin API (mounted outside `/t/{slug}`).
+It is authorized by the session of a **super-admin** — a default-tenant user with
+the super-admin flag, bootstrapped via `GATEWAY_BOOTSTRAP_ADMIN_EMAIL`:
 
 ```bash
 curl -X POST http://localhost:8080/api/provisioning/tenants \
-  -H "X-Admin-Token: $GATEWAY_ADMIN_TOKEN" \
+  -b "gw_session=$SESSION" \
   -H 'Content-Type: application/json' \
   -d '{"slug":"acme","name":"Acme Inc"}'
 
-curl http://localhost:8080/api/provisioning/tenants -H "X-Admin-Token: $GATEWAY_ADMIN_TOKEN"
+curl http://localhost:8080/api/provisioning/tenants -b "gw_session=$SESSION"
 ```
 
 The admin API (`/t/{slug}/api/admin/…`) is scoped to its tenant. Each tenant also has its own

@@ -64,6 +64,9 @@ object AdminDtos {
     data class UserStatusRequest(val status: String)
 
     @Serializable
+    data class UserRoleRequest(val role: String)
+
+    @Serializable
     data class AuditEntry(
         val id: String,
         val at: Long,

@@ -1,13 +1,15 @@
 package io.gateway.app.routes
 
-import io.gateway.common.ConstantTime
+import io.gateway.app.config.GatewayConfig
 import io.gateway.common.GatewayException
 import io.gateway.domain.model.Tenant
 import io.gateway.domain.model.TenantId
 import io.gateway.domain.model.TenantStatus
 import io.gateway.domain.repository.TenantRepository
+import io.gateway.domain.repository.UserRepository
 import io.gateway.domain.time.Clock
 import io.gateway.oidc.SigningKeyManager
+import io.gateway.session.SessionService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receive
@@ -33,23 +35,29 @@ object ProvisioningDtos {
     }
 }
 
+/** Super-admins live in the default tenant; their session cookie resolves there. */
+private const val DEFAULT_TENANT_SLUG = "default"
+
 /**
- * Global super-admin API for creating/listing tenants. Guarded by the bootstrap
- * admin token (the same `X-Admin-Token`); mounted outside the `/t/{slug}` tree.
+ * Global super-admin API for creating/listing tenants. Authorized by the caller's
+ * session + [User.superAdmin]; mounted outside the `/t/{slug}` tree. Super-admins
+ * authenticate against the default tenant.
  */
 fun Route.provisioningRoutes(
     tenants: TenantRepository,
+    users: UserRepository,
+    sessions: SessionService,
     signingKeys: SigningKeyManager,
     clock: Clock,
-    adminToken: String?,
+    config: GatewayConfig,
 ) = route("/api/provisioning/tenants") {
     get {
-        call.requireSuperAdmin(adminToken)
+        call.requireSuperAdmin(tenants, sessions, users, config)
         call.respond(tenants.list().map { ProvisioningDtos.TenantResponse.of(it) })
     }
 
     post {
-        call.requireSuperAdmin(adminToken)
+        call.requireSuperAdmin(tenants, sessions, users, config)
         val body = call.receive<ProvisioningDtos.CreateTenantRequest>()
         val slug = body.slug.trim().lowercase()
         if (!SLUG_REGEX.matches(slug)) {
@@ -71,11 +79,14 @@ fun Route.provisioningRoutes(
     }
 }
 
-private fun ApplicationCall.requireSuperAdmin(adminToken: String?) {
-    if (adminToken == null) throw GatewayException.Forbidden("Provisioning API is disabled.")
-    val provided = request.headers["X-Admin-Token"]
-        ?: throw GatewayException.Unauthenticated("Missing admin token.")
-    if (!ConstantTime.equals(provided, adminToken)) {
-        throw GatewayException.Unauthenticated("Invalid admin token.")
-    }
+private suspend fun ApplicationCall.requireSuperAdmin(
+    tenants: TenantRepository,
+    sessions: SessionService,
+    users: UserRepository,
+    config: GatewayConfig,
+) {
+    val root = tenants.findBySlug(DEFAULT_TENANT_SLUG)
+        ?: throw GatewayException.Forbidden("Provisioning API is unavailable.")
+    val user = requireUser(this, root.id, sessions, users, config)
+    if (!user.superAdmin) throw GatewayException.Forbidden("Super-admin required.")
 }

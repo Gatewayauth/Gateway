@@ -14,6 +14,10 @@ data class User(
     val displayName: String?,
     val status: UserStatus,
     val mfaRequired: Boolean,
+    /** Per-tenant authorization role. Defaults to [Role.USER] for new accounts. */
+    val role: Role = Role.USER,
+    /** Global super-admin: gates cross-tenant provisioning. Held by default-tenant owners. */
+    val superAdmin: Boolean = false,
     val createdAt: Instant,
     val updatedAt: Instant,
 )

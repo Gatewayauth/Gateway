@@ -315,13 +315,13 @@ paths:
     get:
       tags: [Admin]
       summary: List OAuth clients
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       responses:
         "200": { description: OK }
     post:
       tags: [Admin]
       summary: Register an OAuth client
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: "#/components/schemas/CreateClientRequest" } } }
@@ -332,7 +332,7 @@ paths:
     delete:
       tags: [Admin]
       summary: Delete an OAuth client
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -342,7 +342,7 @@ paths:
     post:
       tags: [Admin]
       summary: Rotate the JWT signing key
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       responses:
         "200": { $ref: "#/components/responses/Message" }
 
@@ -350,7 +350,7 @@ paths:
     get:
       tags: [Admin]
       summary: Recent audit-log entries
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       parameters:
         - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
       responses:
@@ -360,7 +360,7 @@ paths:
     get:
       tags: [Admin]
       summary: List users
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       parameters:
         - { name: limit, in: query, schema: { type: integer, default: 50 } }
         - { name: offset, in: query, schema: { type: integer, default: 0 } }
@@ -371,7 +371,7 @@ paths:
     get:
       tags: [Admin]
       summary: Get a user
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
@@ -381,7 +381,7 @@ paths:
     post:
       tags: [Admin]
       summary: Change a user's status (disabling revokes sessions)
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       requestBody:
         required: true
@@ -389,11 +389,25 @@ paths:
       responses:
         "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
 
+  /api/admin/users/{id}/role:
+    post:
+      tags: [Admin]
+      summary: Change a user's role (owner or super-admin only)
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UserRoleRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/UserResponse" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /api/admin/users/{id}/sessions:
     get:
       tags: [Admin]
       summary: List a user's active sessions
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         "200": { description: OK }
@@ -402,7 +416,7 @@ paths:
     post:
       tags: [Admin]
       summary: Revoke all of a user's sessions
-      security: [{ adminToken: [] }]
+      security: [{ sessionCookie: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
         "204": { description: Revoked }
@@ -417,10 +431,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-    adminToken:
-      type: apiKey
-      in: header
-      name: X-Admin-Token
   responses:
     Message:
       description: A simple message
@@ -465,6 +475,8 @@ components:
         displayName: { type: string, nullable: true }
         status: { type: string }
         mfaRequired: { type: boolean }
+        role: { type: string, enum: [USER, ADMIN, OWNER] }
+        superAdmin: { type: boolean }
     SessionSummary:
       type: object
       properties:
@@ -570,6 +582,11 @@ components:
       required: [status]
       properties:
         status: { type: string, enum: [ACTIVE, DISABLED, LOCKED, PENDING_VERIFICATION] }
+    UserRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role: { type: string, enum: [USER, ADMIN, OWNER] }
     MessageResponse:
       type: object
       properties: { message: { type: string } }

@@ -21,21 +21,18 @@ class KeyRotationTest {
 
     @Test
     fun rotationPublishesBothKeysAndKeepsOldTokensValid() = testApplication {
-        gatewayTest()
+        val ctx = gatewayTest()
         val http = createClient { followRedirects = false }
         val redirectUri = "https://rp.example/cb"
 
-        http.post("/t/default/api/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"k@example.com","password":"correcthorsebattery"}""")
-        }
-        val cookie = http.post("/t/default/api/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"k@example.com","password":"correcthorsebattery"}""")
-        }.headers[HttpHeaders.SetCookie]!!.substringBefore(';')
+        // The end user is also the tenant owner, so their session drives both the
+        // OIDC flow and the admin calls.
+        registerUser(http, "default", "k@example.com")
+        ctx.promote("default", "k@example.com", io.gateway.domain.model.Role.OWNER, superAdmin = true)
+        val cookie = login(http, "default", "k@example.com")
 
         val clientId = http.post("/t/default/api/admin/clients") {
-            header("X-Admin-Token", "test-admin-token")
+            sessionCookie(cookie)
             contentType(ContentType.Application.Json)
             setBody(
                 """{"name":"RP","redirect_uris":["$redirectUri"],"scopes":["openid"],""" +
@@ -63,7 +60,7 @@ class KeyRotationTest {
 
         assertEquals(1, http.get("/t/default/.well-known/jwks.json").bodyAsText().countKeys())
 
-        val rotate = http.post("/t/default/api/admin/keys/rotate") { header("X-Admin-Token", "test-admin-token") }
+        val rotate = http.post("/t/default/api/admin/keys/rotate") { sessionCookie(cookie) }
         assertEquals(HttpStatusCode.OK, rotate.status)
 
         // Old (retired) key stays published so its tokens still verify.

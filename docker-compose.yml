@@ -42,9 +42,11 @@ services:
       GATEWAY_REDIS_URL: "redis://redis:6379"
       # Set true behind TLS in production.
       GATEWAY_COOKIE_SECURE: "false"
-      # CHANGE both of these for any real deployment.
-      GATEWAY_ADMIN_TOKEN: "change-me-admin-token"
+      # CHANGE for any real deployment.
       GATEWAY_ENC_KEY: "change-me-encryption-passphrase"
+      # Register this email normally, then restart: it is promoted to OWNER +
+      # super-admin in the default tenant. Admin access is role-based (no token).
+      GATEWAY_BOOTSTRAP_ADMIN_EMAIL: "admin@example.com"
     ports:
       - "8080:8080"
 

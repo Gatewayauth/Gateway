@@ -20,20 +20,15 @@ class ConsentFlowTest {
 
     @Test
     fun authorizeRequiresConsentUntilGranted() = testApplication {
-        gatewayTest()
+        val ctx = gatewayTest()
         val http = createClient { followRedirects = false }
 
-        http.post("/t/default/api/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"c@example.com","password":"correcthorsebattery"}""")
-        }
-        val cookie = http.post("/t/default/api/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"c@example.com","password":"correcthorsebattery"}""")
-        }.headers[HttpHeaders.SetCookie]!!.substringBefore(';')
+        registerUser(http, "default", "c@example.com")
+        ctx.promote("default", "c@example.com", io.gateway.domain.model.Role.OWNER, superAdmin = true)
+        val cookie = login(http, "default", "c@example.com")
 
         val clientId = http.post("/t/default/api/admin/clients") {
-            header("X-Admin-Token", "test-admin-token")
+            sessionCookie(cookie)
             contentType(ContentType.Application.Json)
             setBody(
                 """{"name":"RP","redirect_uris":["$redirectUri"],""" +

@@ -11,6 +11,8 @@ object UsersTable : Table("users") {
     val displayName = varchar("display_name", length = 200).nullable()
     val status = varchar("status", length = 32)
     val mfaRequired = bool("mfa_required")
+    val role = varchar("user_role", length = 16)
+    val isSuperAdmin = bool("is_super_admin")
     val createdAt = long("created_at")
     val updatedAt = long("updated_at")
 

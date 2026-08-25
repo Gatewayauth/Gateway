@@ -24,7 +24,7 @@ fun Application.loadGatewayConfig(): GatewayConfig {
         sessionTtlHours = session.optInt("ttlHours", default = 12).toLong(),
         sessionCookieName = session.property("cookieName").getString(),
         cookieSecure = session.property("cookieSecure").getString().toBoolean(),
-        adminToken = root.propertyOrNull("admin.token")?.getString()?.takeIf { it.isNotBlank() },
+        bootstrapAdminEmail = root.propertyOrNull("admin.bootstrapEmail")?.getString()?.takeIf { it.isNotBlank() },
         encKey = root.property("security.encKey").getString(),
         externalProviders = loadExternalProviders(root),
         // Land the browser on the frontend after external login, not the backend.

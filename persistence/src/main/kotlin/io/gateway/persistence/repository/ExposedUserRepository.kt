@@ -1,5 +1,6 @@
 package io.gateway.persistence.repository
 
+import io.gateway.domain.model.Role
 import io.gateway.domain.model.TenantId
 import io.gateway.domain.model.User
 import io.gateway.domain.model.UserId
@@ -41,6 +42,8 @@ class ExposedUserRepository : UserRepository {
             row[displayName] = user.displayName
             row[status] = user.status.name
             row[mfaRequired] = user.mfaRequired
+            row[role] = user.role.name
+            row[isSuperAdmin] = user.superAdmin
             row[createdAt] = user.createdAt.toEpochMilliseconds()
             row[updatedAt] = user.updatedAt.toEpochMilliseconds()
         }
@@ -56,6 +59,8 @@ class ExposedUserRepository : UserRepository {
             row[displayName] = user.displayName
             row[status] = user.status.name
             row[mfaRequired] = user.mfaRequired
+            row[role] = user.role.name
+            row[isSuperAdmin] = user.superAdmin
             row[updatedAt] = user.updatedAt.toEpochMilliseconds()
         }
         user
@@ -79,6 +84,8 @@ class ExposedUserRepository : UserRepository {
         displayName = this[UsersTable.displayName],
         status = UserStatus.valueOf(this[UsersTable.status]),
         mfaRequired = this[UsersTable.mfaRequired],
+        role = Role.valueOf(this[UsersTable.role]),
+        superAdmin = this[UsersTable.isSuperAdmin],
         createdAt = Instant.fromEpochMilliseconds(this[UsersTable.createdAt]),
         updatedAt = Instant.fromEpochMilliseconds(this[UsersTable.updatedAt]),
     )

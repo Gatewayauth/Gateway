@@ -33,7 +33,6 @@ class ServerTest {
                 "gateway.session.ttlHours" to "12",
                 "gateway.session.cookieName" to "gw_session",
                 "gateway.session.cookieSecure" to "false",
-                "gateway.admin.token" to "test-admin-token",
                 "gateway.security.encKey" to "test-enc-key",
             )
         }

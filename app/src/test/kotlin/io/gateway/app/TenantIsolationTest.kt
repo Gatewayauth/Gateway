@@ -11,6 +11,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import io.gateway.domain.model.Role
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,31 +19,30 @@ import kotlin.test.assertTrue
 
 class TenantIsolationTest {
 
-    private val admin = "X-Admin-Token" to "test-admin-token"
-    private val password = "correcthorsebattery"
-
     @Test
     fun tenantsAreIsolated() = testApplication {
-        gatewayTest()
+        val ctx = gatewayTest()
         val http = createClient { followRedirects = false }
 
-        // Provision a second tenant alongside the seeded "default".
+        // Super-admin (default tenant) provisions a second tenant.
+        val superCookie = adminCookie(http, ctx)
         val created = http.post("/api/provisioning/tenants") {
-            header(admin.first, admin.second)
+            sessionCookie(superCookie)
             contentType(ContentType.Application.Json)
             setBody("""{"slug":"acme","name":"Acme"}""")
         }
         assertEquals(HttpStatusCode.Created, created.status)
 
-        register(http, "default", "alice@example.com")
-        register(http, "acme", "bob@example.com")
+        registerUser(http, "default", "alice@example.com")
+        registerUser(http, "acme", "bob@example.com")
 
         // Each tenant's admin view sees only its own users.
-        val defaultUsers = adminUsers(http, "default")
+        val defaultUsers = adminUsers(http, "default", superCookie)
         assertTrue(defaultUsers.contains("alice@example.com"))
         assertFalse(defaultUsers.contains("bob@example.com"))
 
-        val acmeUsers = adminUsers(http, "acme")
+        val acmeCookie = adminCookie(http, ctx, tenant = "acme", email = "acmeadmin@test.local", role = Role.OWNER)
+        val acmeUsers = adminUsers(http, "acme", acmeCookie)
         assertTrue(acmeUsers.contains("bob@example.com"))
         assertFalse(acmeUsers.contains("alice@example.com"))
 
@@ -58,20 +58,6 @@ class TenantIsolationTest {
         )
     }
 
-    private suspend fun register(http: HttpClient, tenant: String, email: String) {
-        val res = http.post("/t/$tenant/api/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"$email","password":"$password"}""")
-        }
-        assertEquals(HttpStatusCode.Created, res.status)
-    }
-
-    private suspend fun adminUsers(http: HttpClient, tenant: String): String =
-        http.get("/t/$tenant/api/admin/users") { header(admin.first, admin.second) }.bodyAsText()
-
-    private suspend fun login(http: HttpClient, tenant: String, email: String): String =
-        http.post("/t/$tenant/api/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"$email","password":"$password"}""")
-        }.headers[HttpHeaders.SetCookie]!!.substringBefore(';')
+    private suspend fun adminUsers(http: HttpClient, tenant: String, cookie: String): String =
+        http.get("/t/$tenant/api/admin/users") { sessionCookie(cookie) }.bodyAsText()
 }

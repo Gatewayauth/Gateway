@@ -29,6 +29,8 @@ object AuthDtos {
         val displayName: String?,
         val status: String,
         val mfaRequired: Boolean,
+        val role: String,
+        val superAdmin: Boolean,
     ) {
         companion object {
             fun of(user: User): UserResponse = UserResponse(
@@ -38,6 +40,8 @@ object AuthDtos {
                 displayName = user.displayName,
                 status = user.status.name,
                 mfaRequired = user.mfaRequired,
+                role = user.role.name,
+                superAdmin = user.superAdmin,
             )
         }
     }

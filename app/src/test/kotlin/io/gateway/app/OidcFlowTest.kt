@@ -24,23 +24,18 @@ class OidcFlowTest {
 
     @Test
     fun authorizationCodePkceFlowWithRefreshAndReuseDetection() = testApplication {
-        gatewayTest()
+        val ctx = gatewayTest()
         val noRedirect = createClient { followRedirects = false }
 
-        // 1. A user account + session.
-        noRedirect.post("/t/default/api/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"rp-user@example.com","password":"correcthorsebattery"}""")
-        }
-        val login = noRedirect.post("/t/default/api/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"rp-user@example.com","password":"correcthorsebattery"}""")
-        }
-        val cookie = login.headers[HttpHeaders.SetCookie]!!.substringBefore(';')
+        // 1. A user account + session. This user also owns the tenant, so their
+        // session authorizes the admin client registration below.
+        registerUser(noRedirect, "default", "rp-user@example.com")
+        ctx.promote("default", "rp-user@example.com", io.gateway.domain.model.Role.OWNER, superAdmin = true)
+        val cookie = login(noRedirect, "default", "rp-user@example.com")
 
         // 2. Register a public relying party.
         val createClientResp = noRedirect.post("/t/default/api/admin/clients") {
-            header("X-Admin-Token", "test-admin-token")
+            sessionCookie(cookie)
             contentType(ContentType.Application.Json)
             setBody(
                 """{"name":"RP","redirect_uris":["$redirectUri"],""" +
