@@ -1,0 +1,53 @@
+name: CodeQL
+
+# Advanced-setup CodeQL. Replaces GitHub's default setup, whose Java autobuild runs
+# `./gradlew testClasses` and crashes the CodeQL Kotlin extractor under build tracing
+# ("Could not read class … BigInteger.class") on this project's bleeding-edge Kotlin.
+#
+# We use build-mode: none — CodeQL extracts Java/Kotlin straight from source, so there
+# is no Gradle build (and no autobuild/tracing crash) to fail.
+#
+# NOTE: disable the repo's default CodeQL setup before this runs
+# (Settings → Code security → Code scanning → CodeQL → switch to Advanced),
+# otherwise GitHub rejects the workflow as conflicting with default setup.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '30 5 * * 1'
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (java-kotlin)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          build-mode: none
+          # Use the security-and-quality suite for a fuller review; drop to the
+          # default suite if it gets noisy.
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java-kotlin"
