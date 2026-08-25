@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.claude
+.codegraph
+.gradle
+build
+*/build
+.kotlin
+*.log
+.DS_Store

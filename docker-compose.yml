@@ -23,6 +23,9 @@ services:
       retries: 10
 
   gateway:
+    # Published image (deploy hosts `docker compose pull` this). `build:` stays
+    # for local dev, so `docker compose build` still works against source.
+    image: ghcr.io/gatewayauth/gateway:${GATEWAY_TAG:-latest}
     build: .
     depends_on:
       db:
@@ -44,6 +47,20 @@ services:
       GATEWAY_ENC_KEY: "change-me-encryption-passphrase"
     ports:
       - "8080:8080"
+
+  keychain:
+    # Published image; `build:` (context is the sibling Keychain repo) keeps
+    # local-dev parity. apiBase is read by the browser, so it must point at the
+    # gateway as reachable from the host, not the compose network alias.
+    image: ghcr.io/gatewayauth/keychain:${KEYCHAIN_TAG:-latest}
+    build: ../Keychain
+    depends_on:
+      - gateway
+    environment:
+      NUXT_PUBLIC_API_BASE: "http://localhost:8080"
+      NUXT_PUBLIC_TENANT_SLUG: "default"
+    ports:
+      - "3000:80"
 
 volumes:
   gateway-db:
