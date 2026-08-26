@@ -188,7 +188,7 @@ private fun parseUserId(raw: String?): UserId =
  * Resolves the tenant from the path and the caller from their session, requiring
  * an admin role. Returns the tenant id and the acting admin.
  */
-private suspend fun ApplicationCall.requireAdmin(
+internal suspend fun ApplicationCall.requireAdmin(
     tenants: TenantRepository,
     sessions: SessionService,
     users: UserRepository,
@@ -200,4 +200,21 @@ private suspend fun ApplicationCall.requireAdmin(
         throw GatewayException.Forbidden("Admin role required.")
     }
     return tenant.id to user
+}
+
+/**
+ * As [requireAdmin], but additionally requires OWNER (or a super-admin). Used for
+ * privileged management (role definitions, user-role changes).
+ */
+internal suspend fun ApplicationCall.requireOwner(
+    tenants: TenantRepository,
+    sessions: SessionService,
+    users: UserRepository,
+    config: GatewayConfig,
+): Pair<TenantId, User> {
+    val (tid, user) = requireAdmin(tenants, sessions, users, config)
+    if (user.role != Role.OWNER && !user.superAdmin) {
+        throw GatewayException.Forbidden("Owner role required.")
+    }
+    return tid to user
 }

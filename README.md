@@ -123,6 +123,24 @@ Point the service at (all endpoints are tenant-scoped — see Multi-tenancy):
 `401 login_required` so the frontend can drive login and retry. PKCE (S256) is required
 for public clients.
 
+## Roles in tokens (RBAC)
+
+Admins define custom **roles** per tenant (a stable `slug`, a display name, and
+free-form permission strings) under the admin UI / `/t/{slug}/api/admin/roles`, and
+assign them to users. A user's role **slugs** are emitted to a relying party as a
+`roles` claim in the **ID token** and **userinfo** — but only when the client is
+registered with the `roles` scope and requests it. Permissions are Gateway-internal
+and are not emitted.
+
+Example — map Gateway roles to Grafana:
+
+```
+GF_AUTH_GENERIC_OAUTH_SCOPES="openid profile email roles"
+GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH="contains(roles[*], 'grafana-admin') && 'Admin' || 'Viewer'"
+```
+
+Register Grafana's client with `roles` in its `scopes` for the claim to appear.
+
 ## Multi-tenancy
 
 Gateway is multi-tenant (row-level isolation). Every portal, admin, and OIDC endpoint

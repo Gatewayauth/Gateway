@@ -27,6 +27,7 @@ class JwtIssuer(
         audience: String,
         nonce: String?,
         authTime: Long,
+        roles: List<String> = emptyList(),
     ): String {
         val now = clock.now()
         val claims = JWTClaimsSet.Builder()
@@ -41,6 +42,8 @@ class JwtIssuer(
             .apply {
                 user.displayName?.let { claim("name", it) }
                 nonce?.let { claim("nonce", it) }
+                // Custom RBAC role slugs, emitted only when the `roles` scope was granted.
+                if (roles.isNotEmpty()) claim("roles", roles)
             }
             .build()
         return sign(tenantId, claims)

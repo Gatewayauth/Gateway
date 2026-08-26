@@ -33,6 +33,7 @@ import io.gateway.domain.repository.ConsentRepository
 import io.gateway.domain.repository.CredentialRepository
 import io.gateway.domain.repository.OAuthClientRepository
 import io.gateway.domain.repository.ExternalIdentityRepository
+import io.gateway.domain.repository.RbacRoleRepository
 import io.gateway.domain.repository.RecoveryCodeRepository
 import io.gateway.domain.repository.RefreshTokenRepository
 import io.gateway.domain.repository.SessionRepository
@@ -61,6 +62,7 @@ import io.gateway.persistence.repository.ExposedAuditLogger
 import io.gateway.persistence.repository.ExposedConsentRepository
 import io.gateway.persistence.repository.ExposedCredentialRepository
 import io.gateway.persistence.repository.ExposedExternalIdentityRepository
+import io.gateway.persistence.repository.ExposedRbacRoleRepository
 import io.gateway.persistence.repository.ExposedOAuthClientRepository
 import io.gateway.persistence.repository.ExposedRecoveryCodeRepository
 import io.gateway.persistence.repository.ExposedRefreshTokenRepository
@@ -100,6 +102,7 @@ fun appModule(config: GatewayConfig) = module {
     single<SigningKeyRepository> { ExposedSigningKeyRepository() }
     single<ConsentRepository> { ExposedConsentRepository(get()) }
     single<AccountTokenRepository> { ExposedAccountTokenRepository() }
+    single<RbacRoleRepository> { ExposedRbacRoleRepository() }
     single<TenantRepository> { ExposedTenantRepository() }
     single<Mailer> { config.smtp?.let { SmtpMailer(it) } ?: LogMailer() }
     single<AuditLogger> { ExposedAuditLogger(get()) }
@@ -151,7 +154,7 @@ fun appModule(config: GatewayConfig) = module {
     single { JwksProvider(get()) }
     single { AccessTokenVerifier(get(), get()) }
     single { AuthorizationService(get(), get(), get(), get(), get()) }
-    single { TokenService(get(), get(), get(), get(), get(), get()) }
+    single { TokenService(get(), get(), get(), get(), get(), get(), get()) }
     single { ClientAuthenticator(get()) }
     single { ClientRegistrationService(get(), get()) }
     single { ConsentService(get(), get()) }

@@ -6,6 +6,7 @@ import io.gateway.app.tenant.tenantIssuer
 import io.gateway.audit.AuditEventType
 import io.gateway.audit.AuditLogger
 import io.gateway.domain.model.UserId
+import io.gateway.domain.repository.RbacRoleRepository
 import io.gateway.domain.repository.TenantRepository
 import io.gateway.domain.repository.UserRepository
 import io.gateway.oidc.AccessTokenVerifier
@@ -36,6 +37,7 @@ fun Route.oauth2Routes(
     sessions: SessionService,
     users: UserRepository,
     tenants: TenantRepository,
+    roles: RbacRoleRepository,
     authorization: AuthorizationService,
     tokens: TokenService,
     clientAuth: ClientAuthenticator,
@@ -122,7 +124,12 @@ fun Route.oauth2Routes(
             val claims = accessTokens.verify(tid, issuer, header.removePrefix("Bearer ").trim())
             val user = users.findById(tid, UserId.parse(claims.subject))
                 ?: throw OAuthException.invalidGrant("Unknown subject.")
-            call.respond(user.toUserInfo(claims.scopes))
+            val roleSlugs = if ("roles" in claims.scopes) {
+                roles.listForUser(tid, user.id).map { it.slug }
+            } else {
+                null
+            }
+            call.respond(user.toUserInfo(claims.scopes, roleSlugs))
         } catch (e: OAuthException) {
             call.respond(HttpStatusCode.Unauthorized, OAuthDtos.ErrorResponse(e.error, e.description))
         }
@@ -149,11 +156,12 @@ private suspend fun ApplicationCall.respondLoginRequired() = respond(
 )
 
 /** Only release claims the granted scopes cover (OIDC userinfo semantics). */
-private fun io.gateway.domain.model.User.toUserInfo(scopes: Set<String>) = OAuthDtos.UserInfo(
+private fun io.gateway.domain.model.User.toUserInfo(scopes: Set<String>, roles: List<String>?) = OAuthDtos.UserInfo(
     sub = id.toString(),
     email = if ("email" in scopes) email else null,
     emailVerified = if ("email" in scopes) emailVerified else null,
     name = if ("profile" in scopes) displayName else null,
+    roles = roles,
 )
 
 private fun TokenResult.toResponse() = OAuthDtos.TokenResponse(

@@ -45,5 +45,7 @@ object OAuthDtos {
         val email: String? = null,
         @SerialName("email_verified") val emailVerified: Boolean? = null,
         val name: String? = null,
+        // Custom RBAC role slugs; present only when the `roles` scope was granted.
+        val roles: List<String>? = null,
     )
 }

@@ -356,6 +356,81 @@ paths:
       responses:
         "200": { description: OK }
 
+  /api/admin/roles:
+    get:
+      tags: [Admin]
+      summary: List custom RBAC roles (admin)
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RoleResponse" } }
+    post:
+      tags: [Admin]
+      summary: Create a custom role (owner)
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateRoleRequest" } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/RoleResponse" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /api/admin/roles/{id}:
+    patch:
+      tags: [Admin]
+      summary: Update a role's name/description/permissions (owner; slug immutable)
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/UpdateRoleRequest" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/RoleResponse" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [Admin]
+      summary: Delete a role (owner)
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /api/admin/users/{id}/roles:
+    get:
+      tags: [Admin]
+      summary: List a user's assigned roles
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RoleResponse" } }
+    put:
+      tags: [Admin]
+      summary: Set a user's roles (admin)
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/SetUserRolesRequest" } } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/RoleResponse" } }
+        "400": { $ref: "#/components/responses/Error" }
+
   /api/admin/users:
     get:
       tags: [Admin]
@@ -546,6 +621,8 @@ components:
         email: { type: string, nullable: true }
         email_verified: { type: boolean, nullable: true }
         name: { type: string, nullable: true }
+        # Custom RBAC role slugs; present only when the `roles` scope was granted.
+        roles: { type: array, items: { type: string }, nullable: true }
     ConsentRequired:
       type: object
       properties:
@@ -587,6 +664,36 @@ components:
       required: [role]
       properties:
         role: { type: string, enum: [USER, ADMIN, OWNER] }
+    RoleResponse:
+      type: object
+      required: [id, slug, name, permissions, createdAt]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        permissions: { type: array, items: { type: string } }
+        createdAt: { type: integer, format: int64 }
+    CreateRoleRequest:
+      type: object
+      required: [slug, name]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        permissions: { type: array, items: { type: string } }
+    UpdateRoleRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string, nullable: true }
+        permissions: { type: array, items: { type: string } }
+    SetUserRolesRequest:
+      type: object
+      required: [roleIds]
+      properties:
+        roleIds: { type: array, items: { type: string } }
     MessageResponse:
       type: object
       properties: { message: { type: string } }

@@ -15,6 +15,7 @@ import io.gateway.app.routes.mfaRoutes
 import io.gateway.app.routes.oauth2Routes
 import io.gateway.app.routes.oidcRoutes
 import io.gateway.app.routes.provisioningRoutes
+import io.gateway.app.routes.roleRoutes
 import io.gateway.app.tenant.tenantScoped
 import io.gateway.audit.AuditLogger
 import io.gateway.audit.AuditQuery
@@ -28,6 +29,7 @@ import io.gateway.authlocal.RegistrationService
 import io.gateway.domain.model.Role
 import io.gateway.domain.repository.ExternalIdentityRepository
 import io.gateway.domain.repository.OAuthClientRepository
+import io.gateway.domain.repository.RbacRoleRepository
 import io.gateway.domain.repository.TenantRepository
 import io.gateway.domain.repository.UserRepository
 import io.gateway.domain.time.Clock
@@ -134,6 +136,7 @@ fun Application.module() {
     val stateCodec by inject<ExternalStateCodec>()
     val accountLinking by inject<AccountLinkingService>()
     val externalIdentities by inject<ExternalIdentityRepository>()
+    val rbacRoles by inject<RbacRoleRepository>()
     val signingKeys by inject<SigningKeyManager>()
     val audit by inject<AuditLogger>()
     val auditQuery by inject<AuditQuery>()
@@ -201,7 +204,7 @@ fun Application.module() {
             externalAuthRoutes(providerRegistry, stateCodec, tenants, config)
             oidcRoutes(oidcConfig, jwks, tenants)
             oauth2Routes(
-                sessions, users, tenants, authorization, tokenService, clientAuth, accessTokens,
+                sessions, users, tenants, rbacRoles, authorization, tokenService, clientAuth, accessTokens,
                 consentService, audit, config,
             )
             adminRoutes(
@@ -215,6 +218,7 @@ fun Application.module() {
                 auditQuery = auditQuery,
                 config = config,
             )
+            roleRoutes(rbacRoles, users, tenants, sessions, audit, config)
         }
     }
 }

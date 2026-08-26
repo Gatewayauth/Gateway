@@ -8,6 +8,7 @@ import io.gateway.domain.model.TenantId
 import io.gateway.domain.model.User
 import io.gateway.domain.model.UserId
 import io.gateway.domain.repository.AuthorizationCodeRepository
+import io.gateway.domain.repository.RbacRoleRepository
 import io.gateway.domain.repository.RefreshTokenRepository
 import io.gateway.domain.repository.UserRepository
 import io.gateway.domain.time.Clock
@@ -21,6 +22,7 @@ class TokenService(
     private val codes: AuthorizationCodeRepository,
     private val refreshTokens: RefreshTokenRepository,
     private val users: UserRepository,
+    private val roles: RbacRoleRepository,
     private val jwtIssuer: JwtIssuer,
     private val config: OidcConfig,
     private val clock: Clock,
@@ -28,7 +30,12 @@ class TokenService(
     private companion object {
         const val SCOPE_OPENID = "openid"
         const val SCOPE_OFFLINE = "offline_access"
+        const val SCOPE_ROLES = "roles"
     }
+
+    /** Custom RBAC role slugs for the user, only when the `roles` scope was granted. */
+    private suspend fun roleSlugs(tenantId: TenantId, user: User, scopes: Set<String>): List<String> =
+        if (SCOPE_ROLES in scopes) roles.listForUser(tenantId, user.id).map { it.slug } else emptyList()
 
     suspend fun authorizationCodeGrant(
         tenantId: TenantId,
@@ -50,7 +57,10 @@ class TokenService(
             ?: throw OAuthException.invalidGrant("User no longer exists.")
 
         val idToken = if (SCOPE_OPENID in grant.scopes) {
-            jwtIssuer.issueIdToken(tenantId, issuer, user, client.id.value, grant.nonce, grant.authTime.epochSeconds)
+            jwtIssuer.issueIdToken(
+                tenantId, issuer, user, client.id.value, grant.nonce, grant.authTime.epochSeconds,
+                roles = roleSlugs(tenantId, user, grant.scopes),
+            )
         } else {
             null
         }
@@ -93,7 +103,10 @@ class TokenService(
         val user = users.findById(tenantId, record.userId)
             ?: throw OAuthException.invalidGrant("User no longer exists.")
         val idToken = if (SCOPE_OPENID in record.scopes) {
-            jwtIssuer.issueIdToken(tenantId, issuer, user, client.id.value, nonce = null, authTime = now.epochSeconds)
+            jwtIssuer.issueIdToken(
+                tenantId, issuer, user, client.id.value, nonce = null, authTime = now.epochSeconds,
+                roles = roleSlugs(tenantId, user, record.scopes),
+            )
         } else {
             null
         }
