@@ -17,6 +17,7 @@ object OAuthClientsTable : Table("oauth_clients") {
     val grantTypes = text("grant_types")
     val requirePkce = bool("require_pkce")
     val requireConsent = bool("require_consent")
+    val requiredRoles = text("required_roles")
     val createdAt = long("created_at")
 
     override val primaryKey = PrimaryKey(id)

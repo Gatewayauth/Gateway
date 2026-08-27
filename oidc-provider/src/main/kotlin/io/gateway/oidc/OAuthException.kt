@@ -16,5 +16,13 @@ class OAuthException(
         fun invalidClient(description: String) = OAuthException("invalid_client", description, unauthorized = true)
         fun invalidScope(description: String) = OAuthException("invalid_scope", description)
         fun unsupportedGrantType(description: String) = OAuthException("unsupported_grant_type", description)
+
+        /**
+         * The authenticated user is not permitted to access this client. Thrown at
+         * the authorize step (non-redirect) so the user sees the Gateway's own
+         * "no access" page rather than being bounced back to the relying party,
+         * which would just surface its own error.
+         */
+        fun accessDenied(description: String) = OAuthException("access_denied", description)
     }
 }

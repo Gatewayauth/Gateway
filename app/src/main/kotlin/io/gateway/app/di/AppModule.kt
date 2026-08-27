@@ -153,7 +153,7 @@ fun appModule(config: GatewayConfig) = module {
     single { JwtIssuer(get(), get(), get()) }
     single { JwksProvider(get()) }
     single { AccessTokenVerifier(get(), get()) }
-    single { AuthorizationService(get(), get(), get(), get(), get()) }
+    single { AuthorizationService(get(), get(), get(), get(), get(), get()) }
     single { TokenService(get(), get(), get(), get(), get(), get(), get()) }
     single { ClientAuthenticator(get()) }
     single { ClientRegistrationService(get(), get()) }

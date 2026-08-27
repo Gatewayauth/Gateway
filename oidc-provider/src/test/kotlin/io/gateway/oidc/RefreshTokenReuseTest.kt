@@ -9,6 +9,7 @@ import io.gateway.domain.model.User
 import io.gateway.domain.model.UserId
 import io.gateway.domain.model.UserStatus
 import io.gateway.domain.repository.AuthorizationCodeRepository
+import io.gateway.domain.repository.RbacRoleRepository
 import io.gateway.domain.repository.RefreshTokenRepository
 import io.gateway.domain.repository.UserRepository
 import io.gateway.domain.time.Clock
@@ -26,11 +27,12 @@ class RefreshTokenReuseTest {
     private val codes = mockk<AuthorizationCodeRepository>(relaxed = true)
     private val refreshTokens = mockk<RefreshTokenRepository>(relaxed = true)
     private val users = mockk<UserRepository>(relaxed = true)
+    private val roles = mockk<RbacRoleRepository>(relaxed = true)
     private val jwtIssuer = mockk<JwtIssuer>(relaxed = true)
     private val now = Instant.fromEpochMilliseconds(1_000_000)
     private val clock = Clock { now }
     private val tenant = TenantId.DEFAULT
-    private val service = TokenService(codes, refreshTokens, users, jwtIssuer, OidcConfig("https://gw"), clock)
+    private val service = TokenService(codes, refreshTokens, users, roles, jwtIssuer, OidcConfig("https://gw"), clock)
 
     private val client = OAuthClient(
         id = ClientId("client-1"),

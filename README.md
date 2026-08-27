@@ -141,6 +141,28 @@ GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH="contains(roles[*], 'grafana-admin') &
 
 Register Grafana's client with `roles` in its `scopes` for the claim to appear.
 
+### Gating access per client (`requiredRoles`)
+
+A client may declare **`requiredRoles`** — role slugs of which a user must hold at
+least one to be authorized. When set, the authorize step denies a user who has none
+with an `access_denied` error **before** redirecting to the relying party, so they
+see Gateway's own "you don't have access" page instead of the RP's error. Leave it
+empty (the default) and any authenticated tenant user may authorize.
+
+This matters for strict relying parties: Grafana with
+`GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_STRICT=true` rejects a role-less user with a
+hardcoded *"IdP did not return a role attribute"* page that Gateway cannot restyle.
+Setting `requiredRoles` (e.g. `grafana-admin grafana-viewer`, matching the slugs in
+`ROLE_ATTRIBUTE_PATH`) stops those users at Gateway first. Keep Grafana's strict mode
+on as defense-in-depth.
+
+Set it under the admin UI (Admin → Clients → edit) or via the client API:
+
+```
+POST   /t/{slug}/api/admin/clients          # required_roles: ["grafana-admin","grafana-viewer"]
+PATCH  /t/{slug}/api/admin/clients/{id}      # update required_roles on an existing client
+```
+
 ## Multi-tenancy
 
 Gateway is multi-tenant (row-level isolation). Every portal, admin, and OIDC endpoint

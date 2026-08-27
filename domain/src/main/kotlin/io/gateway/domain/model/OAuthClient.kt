@@ -17,6 +17,12 @@ data class OAuthClient(
     val grantTypes: Set<GrantType>,
     val requirePkce: Boolean,
     val requireConsent: Boolean,
+    /**
+     * Role slugs a user must hold (at least one of) to be authorized against this
+     * client. Empty = no gate: any authenticated tenant user may authorize. Lets
+     * the Gateway deny access up front instead of leaving it to the relying party.
+     */
+    val requiredRoles: Set<String> = emptySet(),
     val createdAt: Instant,
 ) {
     fun allowsRedirect(uri: String): Boolean = uri in redirectUris

@@ -21,6 +21,7 @@ class ClientRegistrationService(
         scopes: Set<String>,
         public: Boolean,
         requireConsent: Boolean = true,
+        requiredRoles: Set<String> = emptySet(),
         clientId: String = RandomTokens.urlSafe(CLIENT_ID_BYTES),
     ): ClientRegistration {
         require(redirectUris.isNotEmpty()) { "At least one redirect URI is required." }
@@ -36,6 +37,7 @@ class ClientRegistrationService(
             grantTypes = setOf(GrantType.AUTHORIZATION_CODE, GrantType.REFRESH_TOKEN),
             requirePkce = true,
             requireConsent = requireConsent,
+            requiredRoles = requiredRoles,
             createdAt = clock.now(),
         )
         return ClientRegistration(clients.insert(tenantId, client), secret)

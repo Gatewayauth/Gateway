@@ -12,5 +12,8 @@ interface OAuthClientRepository {
 
     suspend fun insert(tenantId: TenantId, client: OAuthClient): OAuthClient
 
+    /** Updates a mutable client's fields in place. `secretHash`/`createdAt` are left untouched. */
+    suspend fun update(tenantId: TenantId, client: OAuthClient): OAuthClient
+
     suspend fun delete(tenantId: TenantId, id: ClientId)
 }

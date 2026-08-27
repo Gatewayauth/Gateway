@@ -26,6 +26,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 
@@ -66,9 +67,31 @@ fun Route.adminRoutes(
             scopes = body.scopes,
             public = body.public,
             requireConsent = body.requireConsent,
+            requiredRoles = body.requiredRoles,
         )
         call.recordAdmin(tid, admin.id, audit, AuditEventType.CLIENT_CREATED, "client_id=${registration.client.id}")
         call.respond(HttpStatusCode.Created, AdminDtos.ClientResponse.of(registration))
+    }
+
+    patch("/clients/{id}") {
+        val (tid, admin) = call.requireAdmin(tenants, sessions, users, config)
+        val id = call.parameters["id"].orEmpty()
+        val existing = clients.findById(tid, ClientId(id))
+            ?: throw GatewayException.NotFound("Client not found.")
+        val body = call.receive<AdminDtos.UpdateClientRequest>()
+        if (body.redirectUris.isEmpty()) throw GatewayException.Validation("At least one redirect URI is required.")
+        val updated = clients.update(
+            tid,
+            existing.copy(
+                name = body.name,
+                redirectUris = body.redirectUris,
+                allowedScopes = body.scopes + "openid",
+                requireConsent = body.requireConsent,
+                requiredRoles = body.requiredRoles,
+            ),
+        )
+        call.recordAdmin(tid, admin.id, audit, AuditEventType.CLIENT_UPDATED, "client_id=$id")
+        call.respond(AdminDtos.ClientSummary.of(updated))
     }
 
     delete("/clients/{id}") {

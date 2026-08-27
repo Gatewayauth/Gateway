@@ -14,6 +14,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import org.jetbrains.exposed.v1.jdbc.transactions.experimental.newSuspendedTransaction
 
 /** Exposed-backed [OAuthClientRepository]. Every query is scoped by tenant_id. */
@@ -43,7 +44,24 @@ class ExposedOAuthClientRepository : OAuthClientRepository {
             row[grantTypes] = client.grantTypes.joinToString(" ") { it.wireName }
             row[requirePkce] = client.requirePkce
             row[requireConsent] = client.requireConsent
+            row[requiredRoles] = client.requiredRoles.joinToString(" ")
             row[createdAt] = client.createdAt.toEpochMilliseconds()
+        }
+        client
+    }
+
+    override suspend fun update(tenantId: TenantId, client: OAuthClient): OAuthClient = tx {
+        OAuthClientsTable.update({
+            (OAuthClientsTable.id eq client.id.value) and (OAuthClientsTable.tenantId eq tenantId.value.toString())
+        }) { row ->
+            row[name] = client.name
+            row[public] = client.public
+            row[redirectUris] = client.redirectUris.joinToString("\n")
+            row[allowedScopes] = client.allowedScopes.joinToString(" ")
+            row[grantTypes] = client.grantTypes.joinToString(" ") { it.wireName }
+            row[requirePkce] = client.requirePkce
+            row[requireConsent] = client.requireConsent
+            row[requiredRoles] = client.requiredRoles.joinToString(" ")
         }
         client
     }
@@ -70,6 +88,7 @@ class ExposedOAuthClientRepository : OAuthClientRepository {
             .toSet(),
         requirePkce = this[OAuthClientsTable.requirePkce],
         requireConsent = this[OAuthClientsTable.requireConsent],
+        requiredRoles = this[OAuthClientsTable.requiredRoles].split(" ").filter { it.isNotBlank() }.toSet(),
         createdAt = Instant.fromEpochMilliseconds(this[OAuthClientsTable.createdAt]),
     )
 }

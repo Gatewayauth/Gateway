@@ -16,6 +16,17 @@ object AdminDtos {
         val scopes: Set<String> = setOf("openid", "profile", "email"),
         val public: Boolean = false,
         @SerialName("require_consent") val requireConsent: Boolean = true,
+        @SerialName("required_roles") val requiredRoles: Set<String> = emptySet(),
+    )
+
+    /** Mutable fields for an existing client. `secretHash`/`createdAt`/`public` are not changed here. */
+    @Serializable
+    data class UpdateClientRequest(
+        val name: String,
+        @SerialName("redirect_uris") val redirectUris: Set<String>,
+        val scopes: Set<String> = setOf("openid", "profile", "email"),
+        @SerialName("require_consent") val requireConsent: Boolean = true,
+        @SerialName("required_roles") val requiredRoles: Set<String> = emptySet(),
     )
 
     @Serializable
@@ -25,6 +36,8 @@ object AdminDtos {
         val public: Boolean,
         @SerialName("redirect_uris") val redirectUris: Set<String>,
         val scopes: Set<String>,
+        @SerialName("required_roles") val requiredRoles: Set<String>,
+        @SerialName("require_consent") val requireConsent: Boolean,
         @SerialName("client_secret") val clientSecret: String? = null,
     ) {
         companion object {
@@ -35,6 +48,8 @@ object AdminDtos {
                     public = public,
                     redirectUris = redirectUris,
                     scopes = allowedScopes,
+                    requiredRoles = requiredRoles,
+                    requireConsent = requireConsent,
                     clientSecret = registration.plaintextSecret,
                 )
             }
@@ -48,6 +63,8 @@ object AdminDtos {
         val public: Boolean,
         @SerialName("redirect_uris") val redirectUris: Set<String>,
         val scopes: Set<String>,
+        @SerialName("required_roles") val requiredRoles: Set<String>,
+        @SerialName("require_consent") val requireConsent: Boolean,
     ) {
         companion object {
             fun of(client: OAuthClient): ClientSummary = ClientSummary(
@@ -56,6 +73,8 @@ object AdminDtos {
                 public = client.public,
                 redirectUris = client.redirectUris,
                 scopes = client.allowedScopes,
+                requiredRoles = client.requiredRoles,
+                requireConsent = client.requireConsent,
             )
         }
     }

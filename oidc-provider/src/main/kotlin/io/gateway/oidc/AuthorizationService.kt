@@ -9,6 +9,7 @@ import io.gateway.domain.model.UserId
 import io.gateway.domain.repository.AuthorizationCodeRepository
 import io.gateway.domain.repository.ConsentRepository
 import io.gateway.domain.repository.OAuthClientRepository
+import io.gateway.domain.repository.RbacRoleRepository
 import io.gateway.domain.time.Clock
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -25,6 +26,7 @@ class AuthorizationService(
     private val clients: OAuthClientRepository,
     private val codes: AuthorizationCodeRepository,
     private val consents: ConsentRepository,
+    private val roles: RbacRoleRepository,
     private val config: OidcConfig,
     private val clock: Clock,
 ) {
@@ -45,6 +47,18 @@ class AuthorizationService(
         val unknown = requested - client.allowedScopes
         if (unknown.isNotEmpty()) {
             throw OAuthException.invalidScope("Unsupported scope(s): ${unknown.joinToString(" ")}")
+        }
+
+        // Gateway-side access gate: if the client requires roles, the user must hold
+        // at least one. Denied here (before consent) so the user never reaches the
+        // relying party — they see the Gateway's own "no access" page instead.
+        if (client.requiredRoles.isNotEmpty()) {
+            val userSlugs = roles.listForUser(tenantId, userId).map { it.slug }.toSet()
+            if (client.requiredRoles.intersect(userSlugs).isEmpty()) {
+                throw OAuthException.accessDenied(
+                    "You don't have access to ${client.name}. Ask an administrator to grant you the required role.",
+                )
+            }
         }
 
         if (!Pkce.isSupportedMethod(request.codeChallengeMethod)) {
