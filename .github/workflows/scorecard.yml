@@ -34,10 +34,9 @@ jobs:
           # Publishes the score to the public OpenSSF API (badge, deps.dev).
           # Requires the repo to be public. Set false to keep results private.
           publish_results: true
-          # Gives Branch-Protection & other checks full read access.
-          # Create the SCORECARD_TOKEN secret (see gh commands below), then
-          # uncomment. Without it those checks read as inconclusive.
-          # repo_token: ${{ secrets.SCORECARD_TOKEN }}
+          # PAT with admin:read — lets Branch-Protection & other checks read
+          # protected-branch settings (otherwise they score inconclusive/-1).
+          repo_token: ${{ secrets.SCORECARD_TOKEN }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
