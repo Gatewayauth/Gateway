@@ -7,6 +7,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    # Wait 7 days before proposing a newly published version — blunts
+    # compromised just-published releases.
+    cooldown:
+      default-days: 7
     groups:
       gradle-minor-patch:
         update-types: [minor, patch]
@@ -16,9 +20,13 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
 
   # Dockerfile base images — keeps the digest-pinned FROMs current.
   - package-ecosystem: docker
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
