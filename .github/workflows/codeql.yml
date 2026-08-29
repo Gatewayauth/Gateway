@@ -24,6 +24,9 @@ concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default for the workflow; the job escalates only what it needs.
+permissions: read-all
+
 jobs:
   analyze:
     name: Analyze (java-kotlin)

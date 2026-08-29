@@ -45,7 +45,7 @@ class RedisBackendsTest {
         limiter.recordFailure(user)
 
         verify(exactly = 1) { redis.pexpire(failKey, any<Long>()) } // only on the first failure
-        verify(exactly = 1) { redis.psetex(lockKey, any<Long>(), "1") } // locked at the threshold
+        verify(exactly = 1) { redis.set(lockKey, "1", any()) } // locked at the threshold
         verify(exactly = 1) { redis.del(failKey) }
     }
 

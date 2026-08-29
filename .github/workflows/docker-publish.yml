@@ -10,6 +10,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: gatewayauth/gateway
 
+# Least-privilege default; the build job escalates to packages: write itself.
+permissions:
+  contents: read
+
 jobs:
   build-push:
     runs-on: ubuntu-latest

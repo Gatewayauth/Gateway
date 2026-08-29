@@ -3,6 +3,7 @@ package io.gateway.app.redis
 import io.gateway.common.GatewayException
 import io.gateway.domain.model.UserId
 import io.gateway.mfa.MfaAttemptLimiter
+import io.lettuce.core.SetArgs
 import io.lettuce.core.api.sync.RedisCommands
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,7 +31,7 @@ class RedisMfaAttemptLimiter(
         val count = redis.incr(failKey(userId))
         if (count == 1L) redis.pexpire(failKey(userId), window.inWholeMilliseconds)
         if (count >= maxAttempts) {
-            redis.psetex(lockKey(userId), lockout.inWholeMilliseconds, "1")
+            redis.set(lockKey(userId), "1", SetArgs.Builder.px(lockout.inWholeMilliseconds))
             redis.del(failKey(userId))
         }
     }
