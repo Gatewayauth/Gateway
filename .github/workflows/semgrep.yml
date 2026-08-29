@@ -1,0 +1,42 @@
+name: Semgrep SAST
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '30 7 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    # Runs the OSS engine inside the official image; no login/token needed.
+    container:
+      image: semgrep/semgrep@sha256:f1f7b71861c7b28b6e0f661225a2c4f58a484f5d0f182465c6d6b3b22f972ade # latest
+    # Skip on Dependabot PRs (limited token, no security-events write).
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Run Semgrep
+        run: semgrep scan --sarif --output=semgrep.sarif
+        env:
+          # Curated OSS rule packs; add/remove packs as needed.
+          SEMGREP_RULES: >-
+            p/default
+            p/security-audit
+            p/secrets
+
+      - name: Upload to code-scanning
+        uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          sarif_file: semgrep.sarif
