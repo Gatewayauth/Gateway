@@ -13,4 +13,8 @@ COPY --from=build /workspace/app/build/install/app/ /app/
 USER gateway
 EXPOSE 8080
 ENV PORT=8080
+# Liveness probe: the jre image has no curl/wget, so use a bash TCP open on the
+# app port. Fails (non-zero) if nothing is listening.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080' || exit 1
 ENTRYPOINT ["/app/bin/app"]
