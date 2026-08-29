@@ -15,13 +15,18 @@ updates:
       gradle-minor-patch:
         update-types: [minor, patch]
 
-  # GitHub Actions — keeps the SHA-pinned actions current.
+  # GitHub Actions — keeps the SHA-pinned actions current. Grouped into a single
+  # PR so multi-step actions (e.g. codeql-action init/analyze/upload-sarif) always
+  # bump together; splitting them across PRs breaks CodeQL (version mismatch).
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]
 
   # Dockerfile base images — keeps the digest-pinned FROMs current.
   - package-ecosystem: docker
