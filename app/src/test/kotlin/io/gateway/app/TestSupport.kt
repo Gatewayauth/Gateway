@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName") // support file bundles TestContext with shared test helpers
+
 package io.gateway.app
 
 import io.gateway.domain.model.Role
@@ -14,7 +16,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.ApplicationTestBuilder
-import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
 import org.koin.ktor.ext.inject
 import java.security.MessageDigest
