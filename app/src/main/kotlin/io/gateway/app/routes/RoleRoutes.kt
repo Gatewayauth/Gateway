@@ -114,7 +114,10 @@ fun Route.roleRoutes(
             }
             roles.setUserRoles(tid, userId, roleIds)
             call.recordRole(
-                tid, admin.id, audit, AuditEventType.USER_ROLES_CHANGED,
+                tid,
+                admin.id,
+                audit,
+                AuditEventType.USER_ROLES_CHANGED,
                 "user=$userId roles=${roleIds.joinToString(",")}",
             )
             call.respond(roles.listForUser(tid, userId).map { RoleDtos.RoleResponse.of(it) })

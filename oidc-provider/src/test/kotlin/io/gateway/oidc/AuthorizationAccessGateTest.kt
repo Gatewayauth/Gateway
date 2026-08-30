@@ -69,7 +69,8 @@ class AuthorizationAccessGateTest {
 
     @Test
     fun `denies user without any required role`() = runTest {
-        coEvery { clients.findById(tenant, ClientId("grafana")) } returns client(setOf("grafana-admin", "grafana-viewer"))
+        coEvery { clients.findById(tenant, ClientId("grafana")) } returns
+            client(setOf("grafana-admin", "grafana-viewer"))
         coEvery { roles.listForUser(tenant, userId) } returns emptyList()
 
         val e = assertFailsWith<OAuthException> { service.authorize(tenant, request(), userId) }
@@ -79,7 +80,8 @@ class AuthorizationAccessGateTest {
 
     @Test
     fun `allows user holding one of the required roles`() = runTest {
-        coEvery { clients.findById(tenant, ClientId("grafana")) } returns client(setOf("grafana-admin", "grafana-viewer"))
+        coEvery { clients.findById(tenant, ClientId("grafana")) } returns
+            client(setOf("grafana-admin", "grafana-viewer"))
         coEvery { roles.listForUser(tenant, userId) } returns listOf(role("grafana-viewer"))
 
         val location = service.authorize(tenant, request(), userId)

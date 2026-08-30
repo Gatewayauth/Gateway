@@ -75,6 +75,7 @@ import java.util.UUID
  * Application entrypoint (referenced from application.conf). Loads config,
  * connects + migrates the database, installs plugins and DI, then mounts routes.
  */
+@Suppress("LongMethod") // Ktor module wiring: sequential install/DI/route blocks, kept in one place.
 fun Application.module() {
     val config = loadGatewayConfig()
 
@@ -161,7 +162,11 @@ fun Application.module() {
             val user = root?.let { users.findByEmail(it.id, email) }
             when {
                 root == null -> log.warn("Bootstrap admin skipped: no 'default' tenant.")
-                user == null -> log.info("Bootstrap admin '{}' not yet registered; will promote on a later start.", email)
+                user == null ->
+                    log.info(
+                        "Bootstrap admin '{}' not yet registered; will promote on a later start.",
+                        email,
+                    )
                 user.role == Role.OWNER && user.superAdmin -> {} // already promoted
                 else -> {
                     users.update(root.id, user.copy(role = Role.OWNER, superAdmin = true, updatedAt = clock.now()))

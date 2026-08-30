@@ -30,6 +30,7 @@ class AuthorizationService(
     private val config: OidcConfig,
     private val clock: Clock,
 ) {
+    @Suppress("ThrowsCount") // OAuth authorize validates many independent failure modes, each a distinct throw.
     suspend fun authorize(tenantId: TenantId, request: AuthorizationRequest, userId: UserId): String {
         val client = clients.findById(tenantId, ClientId(request.clientId))
             ?: throw OAuthException.invalidClient("Unknown client.")

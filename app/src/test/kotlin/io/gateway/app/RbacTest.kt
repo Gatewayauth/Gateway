@@ -105,6 +105,7 @@ class RbacTest {
         assertFalse(decodeJwtPayload(idNo).contains("grafana-admin"), "no roles claim without roles scope")
     }
 
+    @Suppress("MaxLineLength", "MaximumLineLength", "ArgumentListWrapping") // inline JSON test fixture
     private suspend fun createClientWithScopes(
         http: io.ktor.client.HttpClient,
         cookie: String,

@@ -41,6 +41,7 @@ private const val OWNER_SCAN_LIMIT = 500
  * ([Role.ADMIN] or [Role.OWNER]); every action is scoped to the tenant in the
  * `/t/{slug}` path. Role changes require [Role.OWNER] (or a super-admin).
  */
+@Suppress("LongMethod") // Ktor routing DSL: one route block per admin endpoint, kept together.
 fun Route.adminRoutes(
     clientRegistration: ClientRegistrationService,
     clients: OAuthClientRepository,

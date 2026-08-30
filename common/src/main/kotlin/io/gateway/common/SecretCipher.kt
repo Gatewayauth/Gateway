@@ -20,7 +20,8 @@ class SecretCipher(key: ByteArray) {
     fun encrypt(plaintext: String): String {
         val iv = RandomTokens.bytes(IV_BYTES) // fresh SecureRandom 96-bit nonce per message
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        // nosemgrep: kotlin.lang.security.gcm-detection.gcm-detection — IV is a unique per-message SecureRandom nonce, prepended to the ciphertext; no key+IV reuse.
+        // IV is a unique per-message SecureRandom nonce, prepended to the ciphertext; no key+IV reuse.
+        // nosemgrep: kotlin.lang.security.gcm-detection.gcm-detection
         cipher.init(Cipher.ENCRYPT_MODE, keySpec, GCMParameterSpec(TAG_BITS, iv))
         val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
         return Base64Url.encode(iv + ciphertext)
@@ -31,7 +32,8 @@ class SecretCipher(key: ByteArray) {
         val iv = bytes.copyOfRange(0, IV_BYTES)
         val ciphertext = bytes.copyOfRange(IV_BYTES, bytes.size)
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        // nosemgrep: kotlin.lang.security.gcm-detection.gcm-detection — decrypt reuses the per-message IV recovered from the ciphertext, which is correct/required.
+        // decrypt reuses the per-message IV recovered from the ciphertext, which is correct/required.
+        // nosemgrep: kotlin.lang.security.gcm-detection.gcm-detection
         cipher.init(Cipher.DECRYPT_MODE, keySpec, GCMParameterSpec(TAG_BITS, iv))
         return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
     }

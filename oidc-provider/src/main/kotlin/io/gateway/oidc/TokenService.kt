@@ -58,7 +58,12 @@ class TokenService(
 
         val idToken = if (SCOPE_OPENID in grant.scopes) {
             jwtIssuer.issueIdToken(
-                tenantId, issuer, user, client.id.value, grant.nonce, grant.authTime.epochSeconds,
+                tenantId,
+                issuer,
+                user,
+                client.id.value,
+                grant.nonce,
+                grant.authTime.epochSeconds,
                 roles = roleSlugs(tenantId, user, grant.scopes),
             )
         } else {
@@ -104,7 +109,12 @@ class TokenService(
             ?: throw OAuthException.invalidGrant("User no longer exists.")
         val idToken = if (SCOPE_OPENID in record.scopes) {
             jwtIssuer.issueIdToken(
-                tenantId, issuer, user, client.id.value, nonce = null, authTime = now.epochSeconds,
+                tenantId,
+                issuer,
+                user,
+                client.id.value,
+                nonce = null,
+                authTime = now.epochSeconds,
                 roles = roleSlugs(tenantId, user, record.scopes),
             )
         } else {
