@@ -1,11 +1,11 @@
 # --- Build stage ---
-FROM eclipse-temurin:21-jdk@sha256:85f00967bcc624fc19fa9c2cf124ea426a5363898e267141726f31f358c2e14b AS build
+FROM eclipse-temurin:25-jdk@sha256:e787e08ef76f4c16866108cd7f9fcd96a68eef3ac6cc76866897d4d02d5a2262 AS build
 WORKDIR /workspace
 COPY . .
 RUN chmod +x gradlew && ./gradlew --no-daemon :app:installDist
 
 # --- Runtime stage ---
-FROM eclipse-temurin:21-jre@sha256:7a65df4b22d2de92d4e04056e884f3b9122d70b21e2847fd66084278bd0ce037 AS runtime
+FROM eclipse-temurin:25-jre@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112 AS runtime
 WORKDIR /app
 # Non-root runtime user.
 RUN useradd --system --uid 10001 gateway
