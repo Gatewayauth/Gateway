@@ -66,7 +66,7 @@ dependencies {
     // each entry once the upstream that drags it in ships the fixed version.
     add("implementation", enforcedPlatform("io.netty:netty-bom:4.2.17.Final"))
     add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.22.2"))
-    add("implementation", enforcedPlatform("org.apache.logging.log4j:log4j-bom:2.25.5"))
+    add("implementation", enforcedPlatform("org.apache.logging.log4j:log4j-bom:2.26.1"))
     constraints {
         add("implementation", "org.apache.httpcomponents.core5:httpcore5:5.4.3") {
             because("GHSA HTTP/1 header-parsing memory-exhaustion DoS")
@@ -77,7 +77,7 @@ dependencies {
         add("implementation", "org.apache.httpcomponents.client5:httpclient5:5.6.3") {
             because("GHSA connection-leak pool-exhaustion DoS")
         }
-        add("implementation", "org.apache.commons:commons-compress:1.26.0") {
+        add("implementation", "org.apache.commons:commons-compress:1.28.0") {
             because("GHSA DUMP/Pack200 DoS")
         }
         add("implementation", "org.codehaus.plexus:plexus-utils:4.0.3") {
