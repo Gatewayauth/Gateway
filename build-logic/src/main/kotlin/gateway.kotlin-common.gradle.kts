@@ -65,7 +65,7 @@ dependencies {
     // declaration, so we force patched versions here for every module. Remove
     // each entry once the upstream that drags it in ships the fixed version.
     add("implementation", enforcedPlatform("io.netty:netty-bom:4.2.17.Final"))
-    add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.18.9"))
+    add("implementation", enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.22.2"))
     add("implementation", enforcedPlatform("org.apache.logging.log4j:log4j-bom:2.25.5"))
     constraints {
         add("implementation", "org.apache.httpcomponents.core5:httpcore5:5.4.3") {
