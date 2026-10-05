@@ -4,10 +4,10 @@ buildscript {
     // enforcedPlatform in the convention plugin's dependencies{} block cannot
     // reach it, so the same CVE floors are pinned again here for build time.
     dependencies {
-        classpath(enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.22.2"))
+        classpath(enforcedPlatform("com.fasterxml.jackson:jackson-bom:2.22.3"))
         classpath(enforcedPlatform("org.apache.logging.log4j:log4j-bom:2.26.1"))
         constraints {
-            classpath("org.codehaus.plexus:plexus-utils:4.0.3") {
+            classpath("org.codehaus.plexus:plexus-utils:4.1.0") {
                 because("GHSA-6fmv-xxpf-w3cw directory traversal; shadow drags 4.0.2")
             }
         }
