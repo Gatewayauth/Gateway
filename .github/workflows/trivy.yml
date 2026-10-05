@@ -24,7 +24,7 @@ jobs:
 
       # Scans dependencies (vuln), IaC/Dockerfile (misconfig), and secrets.
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@c03d123cb480c08c69b054af418ea5e69fe6e57e # master
         with:
           scan-type: fs
           scanners: vuln,misconfig,secret
@@ -34,6 +34,6 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload to code-scanning
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with:
           sarif_file: trivy-results.sarif
